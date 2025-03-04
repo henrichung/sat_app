@@ -1,0 +1,19 @@
+2025-03-03 09:38:37 - __main__ - INFO - Starting SAT Question Bank Application
+2025-03-03 09:38:37 - sat_app.config.config_manager - INFO - Configuration loaded successfully
+2025-03-03 09:38:37 - sat_app.config.config_manager - INFO - Created required directories
+2025-03-03 09:38:37 - sat_app.dal.database_manager - INFO - Database initialized successfully at data/sat_app.db
+2025-03-03 09:38:38 - sat_app.ui.question_browser - INFO - Question browser initialized
+2025-03-03 09:38:38 - sat_app.ui.question_editor - INFO - Question editor initialized
+2025-03-03 09:38:38 - sat_app.ui.worksheet_view - INFO - Worksheet view initialized
+2025-03-03 09:38:38 - sat_app.ui.main_window - INFO - Main window initialized
+2025-03-03 09:39:53 - sat_app.business.worksheet_generator - INFO - Generated worksheet with 1 questions, randomize_questions=True, randomize_answers=True
+2025-03-03 09:39:53 - sat_app.ui.worksheet_view - ERROR - Error updating preview: name 'QFrame' is not defined
+2025-03-03 09:39:57 - sat_app.business.worksheet_generator - INFO - Generated worksheet with 1 questions, randomize_questions=True, randomize_answers=True
+2025-03-03 09:39:57 - sat_app.rendering.pdf_generator - INFO - Generated worksheet PDF: data/worksheets/worksheet_20250303_093957.pdf
+2025-03-03 09:39:57 - sat_app.ui.main_window - INFO - Generated worksheet PDF with 1 questions: data/worksheets/worksheet_20250303_093957.pdf
+2025-03-03 09:39:59 - sat_app.ui.worksheet_view - INFO - Generated worksheet with 1 questions, randomize_questions=True, randomize_answers=True
+2025-03-03 09:40:25 - sat_app.business.worksheet_generator - INFO - Generated worksheet with 1 questions, randomize_questions=True, randomize_answers=True
+2025-03-03 09:40:25 - sat_app.rendering.pdf_generator - INFO - Generated worksheet PDF: data/worksheets/worksheet_20250303_094025.pdf
+2025-03-03 09:40:25 - sat_app.ui.main_window - INFO - Generated worksheet PDF with 1 questions: data/worksheets/worksheet_20250303_094025.pdf
+2025-03-03 09:40:30 - sat_app.ui.worksheet_view - INFO - Generated worksheet with 1 questions, randomize_questions=True, randomize_answers=True
+2025-03-03 10:10:56 - sat_app.ui.main_window - INFO - Application closed
