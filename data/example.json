@@ -1,0 +1,41 @@
+{
+  "metadata": {
+    "exported_at": "2025-03-04T12:00:00",
+    "count": 2,
+    "version": "1.0"
+  },
+  "questions": [
+    {
+      "question_text": "The US Geological Survey wants $x = \\sqrt{2}$ to map every human-made structure in the United States, and it is asking volunteers to help. Cassie Tammy Wang and Ashish D\u2019Souza are just two of the many volunteer map editors who ______ to the project since it began in 2012. Which choice completes the text so that it conforms to the conventions of Standard English? test test test3",
+      "question_image_path": "questions/image.png",
+      "answer_a": "$x = \\sqrt{-1}$",
+      "answer_b": "$x = \\sqrt{-2}$",
+      "answer_c": "$x = \\sqrt{1}$",
+      "answer_d": "$x = \\sqrt{2}$",
+      "answer_image_a": "answers/image.png",
+      "answer_image_b": "answers/image.png",
+      "answer_image_c": "answers/image.png",
+      "answer_image_d": "answers/image.png",
+      "correct_answer": "A",
+      "answer_explanation": "\"have contributed\" is the best answer. The convention being tested is the use of verbs to express tense in a sentence. In this choice, the present perfect tense verb \u201chave contributed,\u201d used in conjunction with the phrase \u201csince it began in 2012,\u201d correctly indicates that map editors have contributed in the past and continue to do so in the present. \"contribute\" is incorrect because the present tense verb \u201ccontribute\u201d is inconsistent with the phrase \u201csince it began in 2012,\u201d which suggests that the contributions occurred in the past and continue into the present. \"will contribute\" is incorrect because the future tense verb \u201cwill contribute\u201d is inconsistent with the phrase \u201csince it began in 2012,\u201d which suggests that the contributions occurred in the past and continue into the present. \"will be contributing\" is incorrect because the future tense verb \u201cwill be contributing\u201d is inconsistent with the phrase \u201csince it began in 2012,\u201d which suggests that the contributions occurred in the past and continue into the present.",
+      "subject_tags": "Form,Structure,and Sense",
+      "difficulty_label": "Easy"
+    },
+    {
+      "question_text": "baseball",
+      "question_image_path": null,
+      "answer_a": "baseball",
+      "answer_b": "baseball",
+      "answer_c": "baseball",
+      "answer_d": "baseball",
+      "answer_image_a": null,
+      "answer_image_b": null,
+      "answer_image_c": null,
+      "answer_image_d": null,
+      "correct_answer": "A",
+      "answer_explanation": "baseballbaseballbaseball",
+      "subject_tags": "",
+      "difficulty_label": ""
+    }
+  ]
+}

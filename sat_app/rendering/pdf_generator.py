@@ -66,9 +66,11 @@ class LatexEquationRenderer:
         # Configure matplotlib for non-interactive backend
         matplotlib.use('Agg')
         
-        # Configure default font properties for equations
-        self.font_props = FontProperties(size=12)
-        self.dpi = 300  # High resolution for equations
+        # Configure default font properties for equations - smaller font size
+        self.font_props = FontProperties(size=10)
+        
+        # Lower DPI for more proportional equations relative to text
+        self.dpi = 150  # Reduced from 300 to create more proportional equations
         
         # Setup equation cache to avoid re-rendering the same equations
         self.equation_cache = {}
@@ -163,13 +165,22 @@ class LatexEquationRenderer:
                     )
                     # Copy the temporary file to the output path
                     img = PILImage.open(tmp.name)
-                    # Add padding and white background
+                    
+                    # Resize the image to be more proportional to text
+                    # This helps with the large equation issue
+                    original_width, original_height = img.size
+                    scale_factor = 0.7  # Reduce to 70% of original size
+                    new_width = int(original_width * scale_factor)
+                    new_height = int(original_height * scale_factor)
+                    resized_img = img.resize((new_width, new_height), PILImage.LANCZOS)
+                    
+                    # Add minimal padding and white background
                     padded = PILImage.new(
                         'RGBA', 
-                        (img.width + 10, img.height + 10), 
+                        (resized_img.width + 6, resized_img.height + 6), 
                         (255, 255, 255, 255)
                     )
-                    padded.paste(img, (5, 5))
+                    padded.paste(resized_img, (3, 3))
                     padded.save(output_path)
                     # Add to cache
                     self.equation_cache[equation_hash] = output_path
@@ -178,13 +189,13 @@ class LatexEquationRenderer:
                 self.logger.warning(f"SymPy rendering failed, falling back to Matplotlib: {str(e)}")
             
             # Method 2: Fallback to Matplotlib for more complex formatting
-            fig = plt.figure(figsize=(10, 1), dpi=self.dpi)
+            fig = plt.figure(figsize=(5, 0.8), dpi=self.dpi)  # Smaller figure size
             fig.patch.set_alpha(0)
             
-            # Render the equation using matplotlib's mathtext
+            # Render the equation using matplotlib's mathtext with smaller font
             plt.text(
                 0.5, 0.5, f"${equation}$",
-                fontsize=14, 
+                fontsize=11,  # Reduced from 14
                 ha='center', 
                 va='center',
                 fontproperties=self.font_props
@@ -233,23 +244,73 @@ class LatexEquationRenderer:
             Bytes containing the PNG image data, or None if rendering failed
         """
         try:
-            # Use cached version if available
-            equation_hash = hashlib.md5(equation.encode('utf-8')).hexdigest()
+            # For UI previews, use the same rendering settings for consistency
+            # but with a slightly higher DPI to ensure clarity in the UI
+            ui_dpi = self.dpi * 1.2  # Slightly higher DPI for UI preview
             
-            if equation_hash in self.equation_cache and os.path.exists(self.equation_cache[equation_hash]):
-                with open(self.equation_cache[equation_hash], 'rb') as f:
+            # Create a unique cache key that includes UI-specific parameters
+            equation_hash = hashlib.md5(f"{equation}_ui_preview".encode('utf-8')).hexdigest()
+            
+            # Check if we already have this UI preview cached
+            preview_path = os.path.join(self.cache_dir, f"ui_preview_{equation_hash}.png")
+            if os.path.exists(preview_path):
+                with open(preview_path, 'rb') as f:
                     return f.read()
             
-            # If not in cache, render to a temporary file
-            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-                output_path = tmp.name
-            
-            # Render the equation (this will also cache it)
-            result_path = self.render_equation_image(equation, output_path)
-            
-            if result_path and os.path.exists(result_path):
-                with open(result_path, 'rb') as f:
+            # If not in cache, render a special UI preview version
+            try:
+                # Try with SymPy first
+                with tempfile.NamedTemporaryFile(suffix='.png') as tmp:
+                    sympy.preview(
+                        f"${equation}$", 
+                        viewer='file', 
+                        filename=tmp.name, 
+                        dvioptions=['-D', str(int(ui_dpi))],
+                        euler=False
+                    )
+                    # Process the rendered image for UI display
+                    img = PILImage.open(tmp.name)
+                    
+                    # Resize for UI display - maintain the scale factor from render_equation_image
+                    original_width, original_height = img.size
+                    scale_factor = 0.8  # Slightly larger than in PDF for better UI visibility
+                    new_width = int(original_width * scale_factor)
+                    new_height = int(original_height * scale_factor)
+                    resized_img = img.resize((new_width, new_height), PILImage.LANCZOS)
+                    
+                    # Add minimal padding for UI display
+                    padded = PILImage.new(
+                        'RGBA', 
+                        (resized_img.width + 6, resized_img.height + 6), 
+                        (255, 255, 255, 255)
+                    )
+                    padded.paste(resized_img, (3, 3))
+                    padded.save(preview_path)
+                    
+                    with open(preview_path, 'rb') as f:
+                        return f.read()
+            except Exception:
+                # Fall back to matplotlib
+                fig = plt.figure(figsize=(5, 0.8), dpi=ui_dpi)
+                fig.patch.set_alpha(0)
+                
+                plt.text(
+                    0.5, 0.5, f"${equation}$",
+                    fontsize=10,
+                    ha='center', 
+                    va='center',
+                    fontproperties=self.font_props
+                )
+                
+                plt.axis('off')
+                plt.tight_layout(pad=0.1)
+                
+                plt.savefig(preview_path, transparent=True, bbox_inches='tight', pad_inches=0.1, dpi=ui_dpi)
+                plt.close(fig)
+                
+                with open(preview_path, 'rb') as f:
                     return f.read()
+                    
             return None
             
         except Exception as e:
@@ -475,14 +536,27 @@ class PDFGenerator:
         
         # Process any LaTeX equations in the question text
         equations = self.latex_renderer.render_latex(question_text)
-        processed_text = self.latex_renderer.replace_with_placeholders(question_text, equations)
         
-        # Create the question text paragraph
-        question_para = Paragraph(f"<b>{number}.</b> {processed_text}", self.styles['QuestionText'])
-        elements.append(question_para)
-        
-        # Add rendered equation images
-        self._add_equation_images(elements, equations)
+        if equations:
+            # If we have equations, we need to split the text at equation points
+            # and add text and equations in sequence
+            parts = self._split_text_at_equations(question_text, equations)
+            
+            # Add the question number paragraph first
+            elements.append(Paragraph(f"<b>{number}.</b>", self.styles['QuestionText']))
+            
+            # Add each text part and its corresponding equation
+            for part in parts:
+                if part['type'] == 'text' and part['content'].strip():
+                    elements.append(Paragraph(part['content'], self.styles['QuestionText']))
+                elif part['type'] == 'equation' and part['image_path']:
+                    # Add equation image
+                    if os.path.exists(part['image_path']):
+                        self._add_single_equation_image(elements, part['image_path'])
+        else:
+            # No equations, just add the text directly
+            question_para = Paragraph(f"<b>{number}.</b> {question_text}", self.styles['QuestionText'])
+            elements.append(question_para)
         
         # Add question image if available
         image_path = question.get('image_path')
@@ -523,13 +597,27 @@ class PDFGenerator:
             
             # Process any LaTeX equations in the answer text
             answer_equations = self.latex_renderer.render_latex(text)
-            processed_answer = self.latex_renderer.replace_with_placeholders(text, answer_equations)
             
-            answer_para = Paragraph(f"<b>{letter}.</b> {processed_answer}", self.styles['AnswerChoice'])
-            elements.append(answer_para)
-            
-            # Add rendered equation images with indentation
-            self._add_equation_images(elements, answer_equations, indent=True)
+            if answer_equations:
+                # If we have equations, we need to split the text at equation points
+                # and add text and equations in sequence
+                parts = self._split_text_at_equations(text, answer_equations)
+                
+                # Add the answer letter paragraph first
+                elements.append(Paragraph(f"<b>{letter}.</b>", self.styles['AnswerChoice']))
+                
+                # Add each text part and its corresponding equation
+                for part in parts:
+                    if part['type'] == 'text' and part['content'].strip():
+                        elements.append(Paragraph(part['content'], self.styles['AnswerChoice']))
+                    elif part['type'] == 'equation' and part['image_path']:
+                        # Add equation image with indentation
+                        if os.path.exists(part['image_path']):
+                            self._add_single_equation_image(elements, part['image_path'], indent=True)
+            else:
+                # No equations, just add the text directly
+                answer_para = Paragraph(f"<b>{letter}.</b> {text}", self.styles['AnswerChoice'])
+                elements.append(answer_para)
             
             # Add answer image if available
             image_path = answer.get('image_path')
@@ -567,6 +655,103 @@ class PDFGenerator:
             
             elements.append(Spacer(1, 0.05 * inch))
             
+    def _split_text_at_equations(self, text: str, equations: List[Tuple[str, str, str]]) -> List[Dict]:
+        """
+        Split text into parts, with equation placeholders replaced by their images.
+        
+        Args:
+            text: Original text with LaTeX equations
+            equations: List of (equation, placeholder, image_path) tuples
+            
+        Returns:
+            List of dictionaries with type ('text' or 'equation') and content
+        """
+        result = []
+        remaining_text = text
+        
+        # Sort equations by their position in the text
+        positions = []
+        for eq, placeholder, image_path in equations:
+            eq_text = f"${eq}$"
+            pos = text.find(eq_text)
+            if pos >= 0:
+                positions.append((pos, eq_text, image_path))
+        
+        # Sort by position
+        positions.sort(key=lambda x: x[0])
+        
+        # Go through equations in order of appearance
+        last_end = 0
+        for pos, eq_text, image_path in positions:
+            # Add text before the equation
+            if pos > last_end:
+                result.append({
+                    'type': 'text',
+                    'content': text[last_end:pos]
+                })
+            
+            # Add the equation
+            result.append({
+                'type': 'equation',
+                'content': eq_text,
+                'image_path': image_path
+            })
+            
+            last_end = pos + len(eq_text)
+        
+        # Add any remaining text after the last equation
+        if last_end < len(text):
+            result.append({
+                'type': 'text',
+                'content': text[last_end:]
+            })
+        
+        return result
+    
+    def _add_single_equation_image(self, elements: List, image_path: str, indent: bool = False) -> None:
+        """
+        Add a single equation image to the PDF elements.
+        
+        Args:
+            elements: List of PDF elements to append to
+            image_path: Path to the equation image
+            indent: Whether to indent the equation (for answer choices)
+        """
+        try:
+            # Get image dimensions
+            img = PILImage.open(image_path)
+            width, height = img.size
+            
+            # Calculate appropriate size based on image dimensions
+            # Use a more reasonable max width to match text size better
+            # Reduced max width to better align with text size
+            max_width = 2.5 * inch if not indent else 2.0 * inch
+            aspect = width / height
+            
+            if width > max_width:
+                width = max_width
+                height = width / aspect
+            
+            # Create inline-style rendering for equations
+            # This helps equations flow better with surrounding text
+            reportlab_img = Image(image_path, width=width, height=height)
+            
+            # Create special styling to make equations appear more inline
+            # Adjust vertical alignment to better match text
+            if indent:
+                # Add indentation for answer choices 
+                table = Table([[Spacer(1, 0.2 * inch), reportlab_img]], 
+                              colWidths=[0.5*inch, None])
+                elements.append(table)
+            else:
+                # For question text, make equations appear more inline with text
+                elements.append(reportlab_img)
+            
+            # Reduced spacing after equations
+            elements.append(Spacer(1, 0.03 * inch))
+        except Exception as e:
+            self.logger.error(f"Error adding equation image: {str(e)}")
+            
     def _add_equation_images(self, elements: List, equations: List[Tuple[str, str, str]], 
                              indent: bool = False) -> None:
         """
@@ -582,30 +767,4 @@ class PDFGenerator:
             
         for _, _, image_path in equations:
             if image_path and os.path.exists(image_path):
-                try:
-                    # Get image dimensions
-                    img = PILImage.open(image_path)
-                    width, height = img.size
-                    
-                    # Calculate appropriate size based on image dimensions
-                    # Limit width while maintaining aspect ratio
-                    max_width = 3.5 * inch if not indent else 3 * inch
-                    aspect = width / height
-                    
-                    if width > max_width:
-                        width = max_width
-                        height = width / aspect
-                    
-                    reportlab_img = Image(image_path, width=width, height=height)
-                    
-                    if indent:
-                        # Add indentation for answer choices
-                        table = Table([[Spacer(1, 0.2 * inch), reportlab_img]], 
-                                      colWidths=[0.5*inch, None])
-                        elements.append(table)
-                    else:
-                        elements.append(reportlab_img)
-                    
-                    elements.append(Spacer(1, 0.05 * inch))
-                except Exception as e:
-                    self.logger.error(f"Error adding equation image: {str(e)}")
+                self._add_single_equation_image(elements, image_path, indent)

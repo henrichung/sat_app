@@ -20,7 +20,7 @@ class ResponseGridCell(QFrame):
     Displays question information and provides radio buttons for response selection.
     """
     
-    response_changed = pyqtSignal(int, bool)
+    response_changed = pyqtSignal(int, object)
     
     def __init__(self, question: Dict[str, Any], parent=None):
         """

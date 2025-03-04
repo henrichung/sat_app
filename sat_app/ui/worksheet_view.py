@@ -17,6 +17,7 @@ from ..business.question_manager import QuestionManager
 from ..business.worksheet_generator import WorksheetGenerator
 from ..dal.models import Question, Worksheet
 from ..utils.logger import get_logger
+from .question_browser import QuestionBrowser
 
 
 class WorksheetView(QWidget):
@@ -29,6 +30,9 @@ class WorksheetView(QWidget):
     
     # Signal emitted when a worksheet is ready to be generated
     generate_worksheet = pyqtSignal(dict)
+    
+    # Signal emitted when the user wants to return to the questions tab
+    return_to_questions = pyqtSignal()
     
     def __init__(self, question_manager: QuestionManager, worksheet_generator: WorksheetGenerator, parent=None):
         """
@@ -45,103 +49,36 @@ class WorksheetView(QWidget):
         self.question_manager = question_manager
         self.worksheet_generator = worksheet_generator
         self.selected_questions: List[Question] = []
+        self.external_selection_active = False
         
         # Create main layout with splitter
         main_layout = QVBoxLayout(self)
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        main_layout.addWidget(splitter)
         
-        # Left panel: Question selection
-        left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
+        # Header section with navigation
+        header_layout = QHBoxLayout()
         
-        # Question selection group
-        selection_group = QGroupBox("Question Selection")
-        selection_layout = QVBoxLayout()
+        # Return to questions button
+        self.return_button = QPushButton("← Return to Questions")
+        self.return_button.clicked.connect(self._return_to_questions)
+        header_layout.addWidget(self.return_button)
         
-        # Selection methods tabs (manual, filter, etc.)
-        self.selection_tabs = QGroupBox("Selection Method")
-        selection_tabs_layout = QVBoxLayout()
+        header_layout.addStretch(1)
         
-        # Manual selection
-        self.manual_selection_radio = QCheckBox("Manual Selection")
-        self.manual_selection_radio.setChecked(True)
-        self.manual_selection_radio.toggled.connect(self._update_selection_method)
-        selection_tabs_layout.addWidget(self.manual_selection_radio)
+        # Selected questions count
+        self.selected_count_label = QLabel("0 questions selected")
+        header_layout.addWidget(self.selected_count_label)
         
-        # Filter-based selection
-        self.filter_selection_radio = QCheckBox("Filter-Based Selection")
-        self.filter_selection_radio.toggled.connect(self._update_selection_method)
-        selection_tabs_layout.addWidget(self.filter_selection_radio)
+        # Go back to question selection
+        self.edit_selection_button = QPushButton("Edit Selection")
+        self.edit_selection_button.clicked.connect(self._edit_selection)
+        self.edit_selection_button.setVisible(False)
+        header_layout.addWidget(self.edit_selection_button)
         
-        self.selection_tabs.setLayout(selection_tabs_layout)
-        selection_layout.addWidget(self.selection_tabs)
+        main_layout.addLayout(header_layout)
         
-        # Filter controls (initially hidden)
-        self.filter_controls = QWidget()
-        filter_layout = QFormLayout(self.filter_controls)
-        
-        # Subject tags filter
-        self.tags_filter = QLineEdit()
-        self.tags_filter.setPlaceholderText("Enter tags (comma-separated)")
-        filter_layout.addRow("Subject Tags:", self.tags_filter)
-        
-        # Difficulty filter
-        self.difficulty_filter = QComboBox()
-        self.difficulty_filter.addItems(["All", "Easy", "Medium", "Hard", "Very Hard"])
-        filter_layout.addRow("Difficulty:", self.difficulty_filter)
-        
-        # Question count
-        self.question_count = QSpinBox()
-        self.question_count.setRange(1, 100)
-        self.question_count.setValue(10)
-        filter_layout.addRow("Number of Questions:", self.question_count)
-        
-        # Apply filter button
-        self.apply_filter_button = QPushButton("Apply Filters")
-        self.apply_filter_button.clicked.connect(self._apply_filters)
-        filter_layout.addRow("", self.apply_filter_button)
-        
-        self.filter_controls.setVisible(False)
-        selection_layout.addWidget(self.filter_controls)
-        
-        # Question browser (for manual selection)
-        self.question_browser = QTableWidget(0, 5)
-        self.question_browser.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.question_browser.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
-        self.question_browser.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.question_browser.setHorizontalHeaderLabels(["ID", "Question", "Tags", "Difficulty", "Add"])
-        
-        # Set column widths
-        self.question_browser.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # ID
-        self.question_browser.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Question
-        self.question_browser.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # Tags
-        self.question_browser.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Difficulty
-        self.question_browser.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Add
-        
-        selection_layout.addWidget(self.question_browser, 1)
-        
-        # Selected questions group
-        selected_group = QGroupBox("Selected Questions")
-        selected_layout = QVBoxLayout()
-        
-        self.selected_table = QTableWidget(0, 4)
-        self.selected_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.selected_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.selected_table.setHorizontalHeaderLabels(["ID", "Question", "Tags", "Remove"])
-        
-        # Set column widths
-        self.selected_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # ID
-        self.selected_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Question
-        self.selected_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # Tags
-        self.selected_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Remove
-        
-        selected_layout.addWidget(self.selected_table)
-        selected_group.setLayout(selected_layout)
-        
-        selection_layout.addWidget(selected_group)
-        selection_group.setLayout(selection_layout)
-        left_layout.addWidget(selection_group)
+        # Main content
+        self.content_splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_layout.addWidget(self.content_splitter, 1)  # Give it stretch
         
         # Right panel: Worksheet settings and preview
         right_panel = QWidget()
@@ -202,200 +139,92 @@ class WorksheetView(QWidget):
         self.generate_button.setEnabled(False)
         right_layout.addWidget(self.generate_button)
         
-        # Add panels to splitter
-        splitter.addWidget(left_panel)
-        splitter.addWidget(right_panel)
-        splitter.setSizes([400, 400])  # Initial sizes
+        # Add the worksheet configuration panel to the splitter
+        self.content_splitter.addWidget(right_panel)
         
-        # Load questions for manual selection
-        self._load_questions()
-        
+        # Default to configuration-only view at startup
         self.logger.info("Worksheet view initialized")
-    
-    def _update_selection_method(self, checked):
-        """Update the question selection method based on radio button selection."""
-        if self.manual_selection_radio.isChecked():
-            self.filter_controls.setVisible(False)
-            self.question_browser.setVisible(True)
-        elif self.filter_selection_radio.isChecked():
-            self.filter_controls.setVisible(True)
-            self.question_browser.setVisible(False)
-    
-    def _load_questions(self):
-        """Load questions for manual selection."""
-        try:
-            questions = self.question_manager.get_all_questions()
+        
+    def _return_to_questions(self):
+        """Signal to return to the questions tab."""
+        self.return_to_questions.emit()
+        
+    def _edit_selection(self):
+        """Switch to edit selection mode."""
+        if not hasattr(self, 'question_browser'):
+            # Create the question browser if it doesn't exist
+            left_panel = QWidget()
+            left_layout = QVBoxLayout(left_panel)
             
-            # Clear existing rows
-            self.question_browser.setRowCount(0)
+            self.question_browser = QuestionBrowser(
+                question_manager=self.question_manager,
+                parent=self,
+                enable_worksheet_selection=True
+            )
             
-            # Add questions
-            for row, question in enumerate(questions):
-                self.question_browser.insertRow(row)
-                
-                # ID
-                id_item = QTableWidgetItem(str(question.question_id))
-                self.question_browser.setItem(row, 0, id_item)
-                
-                # Question text (truncated if needed)
-                question_text = question.question_text
-                if len(question_text) > 100:
-                    question_text = question_text[:97] + "..."
-                text_item = QTableWidgetItem(question_text)
-                self.question_browser.setItem(row, 1, text_item)
-                
-                # Tags
-                tags_str = ", ".join(question.subject_tags) if question.subject_tags else ""
-                tags_item = QTableWidgetItem(tags_str)
-                self.question_browser.setItem(row, 2, tags_item)
-                
-                # Difficulty
-                difficulty_item = QTableWidgetItem(question.difficulty_label)
-                self.question_browser.setItem(row, 3, difficulty_item)
-                
-                # Add button
-                add_widget = QWidget()
-                add_layout = QHBoxLayout(add_widget)
-                add_layout.setContentsMargins(2, 2, 2, 2)
-                
-                add_button = QPushButton("Add")
-                add_button.setProperty("question_id", question.question_id)
-                add_button.clicked.connect(lambda checked, q=question: self._add_question_to_selection(q))
-                add_layout.addWidget(add_button)
-                
-                self.question_browser.setCellWidget(row, 4, add_widget)
+            # Connect signals
+            self.question_browser.questions_selected_for_worksheet.connect(self._update_selected_questions)
             
-            self.logger.debug(f"Loaded {len(questions)} questions for selection")
+            left_layout.addWidget(self.question_browser)
+            self.content_splitter.insertWidget(0, left_panel)
             
-        except Exception as e:
-            self.logger.error(f"Error loading questions: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Error loading questions: {str(e)}")
-    
-    def _apply_filters(self):
-        """Apply filters and select questions automatically."""
-        try:
-            # Build filter criteria
-            filters = {}
+            # Load existing questions
+            if self.selected_questions:
+                self.question_browser.load_questions_to_worksheet(self.selected_questions)
+        
+        # Show the question browser
+        if self.content_splitter.widget(0).isHidden():
+            self.content_splitter.widget(0).show()
             
-            # Tag filter
-            tag_filter = self.tags_filter.text().strip()
-            if tag_filter:
-                filters['subject_tags'] = tag_filter
-            
-            # Difficulty filter
-            difficulty = self.difficulty_filter.currentText()
-            if difficulty != "All":
-                filters['difficulty'] = difficulty
-            
-            # Get number of questions to select
-            count = self.question_count.value()
-            
-            # Use the worksheet generator to get filtered and randomized questions
-            try:
-                # Get filtered questions from question manager
-                questions = self.question_manager.filter_questions(filters)
-                
-                if not questions:
-                    QMessageBox.warning(self, "Warning", 
-                                        f"No questions found matching the selected filters.")
-                    return
-                
-                # Randomize selection if we have more questions than requested
-                if len(questions) > count:
-                    import random
-                    selected_questions = random.sample(questions, count)
-                else:
-                    selected_questions = questions
-                
-                # Clear existing selection and add new questions
-                self.selected_questions.clear()
-                for question in selected_questions:
-                    self._add_question_to_selection(question)
-                
-                self.logger.debug(f"Applied filters: selected {len(selected_questions)} questions")
-                
-            except ValueError as ve:
-                self.logger.error(f"Error in filter selection: {str(ve)}")
-                QMessageBox.warning(self, "Warning", str(ve))
-                
-        except Exception as e:
-            self.logger.error(f"Error applying filters: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Error applying filters: {str(e)}")
-    
-    def _add_question_to_selection(self, question: Question):
+        # Update sizes
+        self.content_splitter.setSizes([400, 400])
+        self.edit_selection_button.setVisible(False)
+        
+    def load_selected_questions(self, questions: List[Question]):
         """
-        Add a question to the selected questions list.
+        Load a selection of questions from the main question browser.
         
         Args:
-            question: The question to add
+            questions: List of Question objects to use for the worksheet
         """
-        # Check if question is already selected
-        for q in self.selected_questions:
-            if q.question_id == question.question_id:
-                return
+        self.external_selection_active = True
+        self.selected_questions = questions
         
-        # Add to selected questions list
-        self.selected_questions.append(question)
+        # Update the count label
+        count = len(self.selected_questions)
+        self.selected_count_label.setText(f"{count} questions selected")
         
-        # Add to selected table
-        row = self.selected_table.rowCount()
-        self.selected_table.insertRow(row)
+        # Update the preview
+        self._update_preview()
         
-        # ID
-        id_item = QTableWidgetItem(str(question.question_id))
-        self.selected_table.setItem(row, 0, id_item)
+        # Hide the question browser if it exists
+        if hasattr(self, 'question_browser'):
+            self.content_splitter.widget(0).hide()
         
-        # Question text (truncated if needed)
-        question_text = question.question_text
-        if len(question_text) > 100:
-            question_text = question_text[:97] + "..."
-        text_item = QTableWidgetItem(question_text)
-        self.selected_table.setItem(row, 1, text_item)
+        # Enable the edit selection button
+        self.edit_selection_button.setVisible(True)
         
-        # Tags
-        tags_str = ", ".join(question.subject_tags) if question.subject_tags else ""
-        tags_item = QTableWidgetItem(tags_str)
-        self.selected_table.setItem(row, 2, tags_item)
+        # Enable the generate button
+        self.generate_button.setEnabled(count > 0)
         
-        # Remove button
-        remove_widget = QWidget()
-        remove_layout = QHBoxLayout(remove_widget)
-        remove_layout.setContentsMargins(2, 2, 2, 2)
+        self.logger.debug(f"Loaded {count} questions from external selection")
+    
+    def _update_selected_questions(self, questions: List[Question]):
+        """
+        Update the selected questions list and preview.
         
-        remove_button = QPushButton("Remove")
-        remove_button.setProperty("question_id", question.question_id)
-        remove_button.clicked.connect(lambda checked, qid=question.question_id: self._remove_question_from_selection(qid))
-        remove_layout.addWidget(remove_button)
-        
-        self.selected_table.setCellWidget(row, 3, remove_widget)
-        
-        # Update preview and enable generate button if needed
+        Args:
+            questions: List of Question objects selected for the worksheet
+        """
+        self.selected_questions = questions
         self._update_preview()
         self.generate_button.setEnabled(len(self.selected_questions) > 0)
         
-        self.logger.debug(f"Added question {question.question_id} to selection")
-    
-    def _remove_question_from_selection(self, question_id: int):
-        """
-        Remove a question from the selected questions list.
+        # Update count label
+        count = len(self.selected_questions)
+        self.selected_count_label.setText(f"{count} questions selected")
         
-        Args:
-            question_id: ID of the question to remove
-        """
-        # Remove from selected questions list
-        self.selected_questions = [q for q in self.selected_questions if q.question_id != question_id]
-        
-        # Remove from selected table
-        for row in range(self.selected_table.rowCount()):
-            if self.selected_table.item(row, 0).text() == str(question_id):
-                self.selected_table.removeRow(row)
-                break
-        
-        # Update preview and disable generate button if needed
-        self._update_preview()
-        self.generate_button.setEnabled(len(self.selected_questions) > 0)
-        
-        self.logger.debug(f"Removed question {question_id} from selection")
+        self.logger.debug(f"Updated selected questions: {count} questions selected")
     
     def _update_preview(self):
         """Update the worksheet preview."""
@@ -550,21 +379,18 @@ class WorksheetView(QWidget):
             return
         
         try:
-            # Create worksheet object
-            worksheet = Worksheet(
-                title=self.worksheet_title.text() or "Untitled Worksheet",
-                description=self.worksheet_description.toPlainText(),
-                question_ids=[q.question_id for q in self.selected_questions]
-            )
-            
-            # Generate worksheet with options
+            # Get worksheet settings
+            title = self.worksheet_title.text() or "Untitled Worksheet"
+            description = self.worksheet_description.toPlainText()
             randomize_questions = self.randomize_questions.isChecked()
             randomize_answers = self.randomize_answers.isChecked()
             include_answer_key = self.include_answer_key.isChecked()
             
-            # Use the worksheet generator to create the worksheet
-            worksheet_data = self.worksheet_generator.generate_worksheet(
-                worksheet,
+            # Use the worksheet generator to create the worksheet from the selected questions
+            worksheet_data = self.worksheet_generator.generate_from_questions(
+                title=title,
+                description=description,
+                questions=self.selected_questions,
                 randomize_questions=randomize_questions,
                 randomize_answers=randomize_answers
             )

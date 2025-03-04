@@ -250,3 +250,74 @@ class QuestionManager:
         valid_answers = ['A', 'B', 'C', 'D']
         if question_data['correct_answer'] not in valid_answers:
             raise ValueError(f"Invalid correct_answer. Must be one of {valid_answers}")
+    
+    def get_student_list(self) -> List[str]:
+        """
+        Get a list of all student IDs who have recorded answers.
+        
+        Returns:
+            A list of student IDs
+        """
+        try:
+            # Try to access the database manager directly
+            if hasattr(self.question_repository, 'db_manager'):
+                db_manager = self.question_repository.db_manager
+                query = "SELECT DISTINCT student_id FROM scores ORDER BY student_id"
+                result = db_manager.execute_query(query)
+                
+                if not result:
+                    return []
+                
+                return [row['student_id'] for row in result]
+            
+            return []
+            
+        except Exception as e:
+            self.logger.error(f"Error getting student list: {str(e)}")
+            return []
+    
+    def get_student_answered_questions(self, student_id: str) -> Dict[int, Any]:
+        """
+        Get a dictionary of questions answered by a student and the worksheets they appeared in.
+        
+        Args:
+            student_id: The ID of the student
+        
+        Returns:
+            A dictionary mapping question IDs to [worksheet_id, worksheet_title] lists
+        """
+        try:
+            # Check if we can access the database manager
+            if not hasattr(self.question_repository, 'db_manager'):
+                return {}
+                
+            db_manager = self.question_repository.db_manager
+            
+            # Query the database for all questions this student has answered
+            query = """
+            SELECT s.question_id, s.worksheet_id, w.title 
+            FROM scores s 
+            LEFT JOIN worksheets w ON s.worksheet_id = w.worksheet_id
+            WHERE s.student_id = ? 
+            GROUP BY s.question_id
+            """
+            
+            result = db_manager.execute_query(query, (student_id,))
+            
+            # Build the answered questions dictionary
+            student_answered_questions = {}
+            
+            if result:
+                for row in result:
+                    question_id = row['question_id']
+                    worksheet_id = row['worksheet_id']
+                    worksheet_title = row.get('title', f"Worksheet #{worksheet_id}")
+                    
+                    # Store the worksheet information with the question
+                    student_answered_questions[question_id] = [worksheet_id, worksheet_title]
+            
+            return student_answered_questions
+            
+        except Exception as e:
+            self.logger.error(f"Error getting student answered questions: {str(e)}")
+            return {}

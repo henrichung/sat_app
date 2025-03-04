@@ -4,8 +4,9 @@ Provides the main application window and navigation between modules.
 """
 import logging
 from PyQt6.QtWidgets import (
-    QMainWindow, QTabWidget, QVBoxLayout, QWidget, 
-    QLabel, QStatusBar, QMessageBox, QSplitter
+    QMainWindow, QTabWidget, QVBoxLayout, QHBoxLayout, QWidget, 
+    QLabel, QStatusBar, QMessageBox, QSplitter, QCheckBox, QPushButton,
+    QLineEdit, QTextEdit, QGroupBox, QFormLayout
 )
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon
@@ -87,11 +88,8 @@ class MainWindow(QMainWindow):
     
     def _setup_ui(self):
         """Set up the UI components."""
-        # Questions tab
+        # Questions tab with integrated worksheet functionality
         self._setup_questions_tab()
-        
-        # Worksheets tab
-        self._setup_worksheets_tab()
         
         # Student Responses tab
         self._setup_student_responses_tab()
@@ -106,29 +104,119 @@ class MainWindow(QMainWindow):
         self._setup_settings_tab()
     
     def _setup_questions_tab(self):
-        """Set up the Questions tab with browser and editor."""
+        """Set up the Questions tab with browser, editor, and integrated worksheet functionality."""
         questions_tab = QWidget()
         questions_layout = QVBoxLayout(questions_tab)
         
-        # Create a splitter to allow resizing
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        # Main splitter - Left side for questions, right side for editor/worksheet
+        main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Left panel for question browser
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Toolbar for worksheet actions
+        worksheet_toolbar = QHBoxLayout()
+        
+        # Worksheet mode toggle
+        self.worksheet_mode_toggle = QCheckBox("Worksheet Mode")
+        self.worksheet_mode_toggle.toggled.connect(self._toggle_worksheet_mode)
+        worksheet_toolbar.addWidget(self.worksheet_mode_toggle)
+        
+        # Selected questions counter
+        self.worksheet_selected_count = QLabel("Selected: 0")
+        self.worksheet_selected_count.setVisible(False)
+        worksheet_toolbar.addWidget(self.worksheet_selected_count)
+        
+        worksheet_toolbar.addStretch(1)
+        
+        # Generate worksheet button
+        self.generate_worksheet_btn = QPushButton("Generate Worksheet")
+        self.generate_worksheet_btn.clicked.connect(self._generate_worksheet_from_selection)
+        self.generate_worksheet_btn.setVisible(False)
+        self.generate_worksheet_btn.setEnabled(False)
+        worksheet_toolbar.addWidget(self.generate_worksheet_btn)
+        
+        left_layout.addLayout(worksheet_toolbar)
         
         # Question browser
         self.question_browser = QuestionBrowser(self.question_manager)
         self.question_browser.edit_question.connect(self._edit_question)
         self.question_browser.view_question.connect(self._view_question)
         self.question_browser.question_deleted.connect(self._question_deleted)
-        splitter.addWidget(self.question_browser)
+        self.question_browser.worksheet_selection_changed.connect(self._update_worksheet_selection)
+        left_layout.addWidget(self.question_browser, 1)
+        
+        # Right panel with stacked layout for editor and worksheet settings
+        self.right_panel = QWidget()
+        self.right_layout = QVBoxLayout(self.right_panel)
+        self.right_layout.setContentsMargins(0, 0, 0, 0)
         
         # Question editor
         self.question_editor = QuestionEditor(self.question_manager)
         self.question_editor.question_saved.connect(self._question_saved)
-        splitter.addWidget(self.question_editor)
+        self.right_layout.addWidget(self.question_editor)
+        
+        # Worksheet settings panel (initially hidden)
+        self.worksheet_settings = QWidget()
+        worksheet_settings_layout = QVBoxLayout(self.worksheet_settings)
+        
+        # Settings group
+        settings_group = QGroupBox("Worksheet Settings")
+        settings_form = QFormLayout()
+        
+        # Title
+        self.worksheet_title = QLineEdit()
+        settings_form.addRow("Title:", self.worksheet_title)
+        
+        # Description
+        self.worksheet_description = QTextEdit()
+        self.worksheet_description.setMaximumHeight(80)
+        settings_form.addRow("Description:", self.worksheet_description)
+        
+        # Randomization options
+        self.randomize_questions = QCheckBox("Randomize Question Order")
+        self.randomize_questions.setChecked(True)
+        settings_form.addRow("", self.randomize_questions)
+        
+        self.randomize_answers = QCheckBox("Randomize Answer Choices")
+        self.randomize_answers.setChecked(True)
+        settings_form.addRow("", self.randomize_answers)
+        
+        # Generate answer key
+        self.include_answer_key = QCheckBox("Include Answer Key")
+        self.include_answer_key.setChecked(True)
+        settings_form.addRow("", self.include_answer_key)
+        
+        settings_group.setLayout(settings_form)
+        worksheet_settings_layout.addWidget(settings_group)
+        
+        # Generate PDF button
+        self.generate_pdf_btn = QPushButton("Generate Worksheet PDF")
+        self.generate_pdf_btn.clicked.connect(self._generate_worksheet_pdf_from_settings)
+        worksheet_settings_layout.addWidget(self.generate_pdf_btn)
+        
+        # Return to question editing button
+        back_btn = QPushButton("← Return to Question Editing")
+        back_btn.clicked.connect(self._return_to_question_editing)
+        worksheet_settings_layout.addWidget(back_btn)
+        
+        # Spacer to push everything to the top
+        worksheet_settings_layout.addStretch(1)
+        
+        # Hide the worksheet settings initially
+        self.worksheet_settings.hide()
+        self.right_layout.addWidget(self.worksheet_settings)
+        
+        # Add panels to main splitter
+        main_splitter.addWidget(left_panel)
+        main_splitter.addWidget(self.right_panel)
         
         # Set initial sizes
-        splitter.setSizes([600, 600])
+        main_splitter.setSizes([500, 700])
         
-        questions_layout.addWidget(splitter)
+        questions_layout.addWidget(main_splitter)
         
         self.tab_widget.addTab(questions_tab, "Questions")
     
@@ -204,18 +292,110 @@ class MainWindow(QMainWindow):
         """
         self.status_bar.showMessage(f"Question {question_id} deleted successfully")
     
-    def _setup_worksheets_tab(self):
-        """Set up the Worksheets tab with the worksheet view."""
-        worksheets_tab = QWidget()
-        worksheets_layout = QVBoxLayout(worksheets_tab)
+    def _toggle_worksheet_mode(self, enabled: bool):
+        """
+        Toggle worksheet selection mode in the question browser.
         
-        # Create the worksheet view
-        self.worksheet_view = WorksheetView(self.question_manager, self.worksheet_generator)
-        self.worksheet_view.generate_worksheet.connect(self._generate_worksheet_pdf)
+        Args:
+            enabled: Whether worksheet mode is enabled
+        """
+        # Update UI elements
+        self.worksheet_selected_count.setVisible(enabled)
+        self.generate_worksheet_btn.setVisible(enabled)
         
-        worksheets_layout.addWidget(self.worksheet_view)
+        # Enable worksheet selection in question browser
+        self.question_browser.set_worksheet_selection_mode(enabled)
         
-        self.tab_widget.addTab(worksheets_tab, "Worksheets")
+        # If disabling and there are selections, confirm with user
+        if not enabled and self.question_browser.get_selected_for_worksheet():
+            response = QMessageBox.question(
+                self, 
+                "Clear Selections?", 
+                "Do you want to clear your worksheet selections?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if response == QMessageBox.StandardButton.Yes:
+                self.question_browser.clear_worksheet_selections()
+            
+        # If switching to worksheet mode, make sure we're in question editing mode
+        if enabled:
+            self._return_to_question_editing()
+    
+    def _update_worksheet_selection(self):
+        """Update the worksheet selection count display."""
+        count = len(self.question_browser.get_selected_for_worksheet())
+        self.worksheet_selected_count.setText(f"Selected: {count}")
+        
+        # Enable/disable the generate button
+        self.generate_worksheet_btn.setEnabled(count > 0)
+    
+    def _generate_worksheet_from_selection(self):
+        """
+        Show worksheet settings for the selected questions.
+        """
+        selected_questions = self.question_browser.get_selected_for_worksheet()
+        if not selected_questions:
+            QMessageBox.warning(
+                self, 
+                "No Questions Selected", 
+                "Please select at least one question for the worksheet."
+            )
+            return
+        
+        # Hide the question editor and show the worksheet settings
+        self.question_editor.hide()
+        self.worksheet_settings.show()
+        
+        # Update the settings with any default values
+        self.worksheet_title.setText(f"Worksheet - {len(selected_questions)} Questions")
+        
+        # Clear description if it's default text
+        if not self.worksheet_description.toPlainText() or self.worksheet_description.toPlainText().startswith("Worksheet with "):
+            self.worksheet_description.setText(f"Worksheet with {len(selected_questions)} questions")
+        
+        self.logger.debug(f"Showing worksheet settings for {len(selected_questions)} questions")
+    
+    def _return_to_question_editing(self):
+        """Return to normal question editing mode."""
+        self.worksheet_settings.hide()
+        self.question_editor.show()
+    
+    def _generate_worksheet_pdf_from_settings(self):
+        """Generate worksheet PDF from the current settings."""
+        selected_questions = self.question_browser.get_selected_for_worksheet()
+        if not selected_questions:
+            QMessageBox.warning(self, "Error", "No questions selected for worksheet")
+            return
+        
+        try:
+            # Get worksheet settings
+            title = self.worksheet_title.text() or "Untitled Worksheet"
+            description = self.worksheet_description.toPlainText()
+            randomize_questions = self.randomize_questions.isChecked()
+            randomize_answers = self.randomize_answers.isChecked()
+            include_answer_key = self.include_answer_key.isChecked()
+            
+            # Use the worksheet generator to create the worksheet
+            worksheet_data = self.worksheet_generator.generate_from_questions(
+                title=title,
+                description=description,
+                questions=selected_questions,
+                randomize_questions=randomize_questions,
+                randomize_answers=randomize_answers
+            )
+            
+            # Prepare the data for PDF generation
+            pdf_data = self.worksheet_generator.prepare_for_pdf(
+                worksheet_data,
+                include_answer_key=include_answer_key
+            )
+            
+            # Generate the PDF
+            self._generate_worksheet_pdf(pdf_data)
+            
+        except Exception as e:
+            self.logger.error(f"Error generating worksheet: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error generating worksheet: {str(e)}")
     
     def _setup_student_responses_tab(self):
         """Set up the Student Responses tab with the student response view."""

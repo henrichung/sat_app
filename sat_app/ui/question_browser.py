@@ -35,13 +35,20 @@ class QuestionBrowser(QWidget):
     # Signal emitted when a question is deleted
     question_deleted = pyqtSignal(int)
     
-    def __init__(self, question_manager: QuestionManager, parent=None):
+    # Signal emitted when questions are selected for a worksheet
+    questions_selected_for_worksheet = pyqtSignal(list)
+    
+    # Signal emitted when worksheet selection changes
+    worksheet_selection_changed = pyqtSignal()
+    
+    def __init__(self, question_manager: QuestionManager, parent=None, enable_worksheet_selection: bool = False):
         """
         Initialize the question browser.
         
         Args:
             question_manager: The manager for question operations
             parent: The parent widget
+            enable_worksheet_selection: Whether to enable worksheet selection functionality
         """
         super().__init__(parent)
         
@@ -52,6 +59,14 @@ class QuestionBrowser(QWidget):
         self.total_questions = 0
         self.filters: Dict[str, Any] = {}
         self.current_questions: List[Question] = []
+        self.enable_worksheet_selection = enable_worksheet_selection
+        self.selected_for_worksheet: List[Question] = []
+        self.worksheet_column = None  # Initialize attribute to fix error
+        
+        # For tracking student answered questions
+        self.current_student_id = None
+        self.student_answered_questions = {}  # {question_id: [worksheet_id, worksheet_title]}
+        self.show_answered_questions = False
         
         # Create main layout
         main_layout = QVBoxLayout(self)
@@ -83,6 +98,33 @@ class QuestionBrowser(QWidget):
         self.difficulty_filter.addItems(["All", "Easy", "Medium", "Hard", "Very Hard"])
         filter_layout.addRow("Difficulty:", self.difficulty_filter)
         
+        # Student filter row
+        student_filter_layout = QHBoxLayout()
+        
+        self.student_filter = QComboBox()
+        self.student_filter.setMinimumWidth(150)
+        self.student_filter.addItem("All Students", None)
+        student_filter_layout.addWidget(self.student_filter, 1)
+        
+        # Connect student selection change
+        self.student_filter.currentIndexChanged.connect(self._on_student_changed)
+        
+        # Checkbox for answered questions
+        self.show_answered_checkbox = QCheckBox("Hide Already Answered")
+        self.show_answered_checkbox.setChecked(False)
+        self.show_answered_checkbox.setEnabled(False)  # Initially disabled until student is selected
+        self.show_answered_checkbox.stateChanged.connect(self._on_answered_filter_changed)
+        student_filter_layout.addWidget(self.show_answered_checkbox)
+        
+        # Refresh student list button
+        self.refresh_students_button = QPushButton("↻")
+        self.refresh_students_button.setToolTip("Refresh student list")
+        self.refresh_students_button.setMaximumWidth(30)
+        self.refresh_students_button.clicked.connect(self._load_student_list)
+        student_filter_layout.addWidget(self.refresh_students_button)
+        
+        filter_layout.addRow("Student:", student_filter_layout)
+        
         # Filter actions
         filter_buttons = QHBoxLayout()
         
@@ -103,12 +145,33 @@ class QuestionBrowser(QWidget):
         self.results_label = QLabel("Showing 0 questions")
         main_layout.addWidget(self.results_label)
         
-        # Create question table
-        self.question_table = QTableWidget(0, 5)  # Rows will be added dynamically, 5 columns
+        # Create question table with appropriate columns (Add worksheet column if enabled)
+        # Add extra column for answered status when in student filtering mode
+        self.student_mode_active = False
+        base_columns = 5  # ID, Question, Tags, Difficulty, Actions
+        selection_columns = 1 if self.enable_worksheet_selection else 0  # Worksheet selection
+        student_columns = 1  # Student answered column
+        
+        column_count = base_columns + selection_columns + student_columns
+        
+        self.question_table = QTableWidget(0, column_count)
         self.question_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.question_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.question_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.question_table.setHorizontalHeaderLabels(["ID", "Question", "Tags", "Difficulty", "Actions"])
+        
+        # Dynamically set columns based on active modes
+        headers = ["ID", "Question", "Tags", "Difficulty", "Actions"]
+        
+        # Add student history column
+        headers.append("Student History")
+        self.student_history_column = 5
+        
+        # Add worksheet selection column if enabled
+        if self.enable_worksheet_selection:
+            headers.append("Worksheet")
+            self.worksheet_column = 6
+            
+        self.question_table.setHorizontalHeaderLabels(headers)
         
         # Set column widths
         self.question_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # ID
@@ -116,6 +179,11 @@ class QuestionBrowser(QWidget):
         self.question_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # Tags
         self.question_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Difficulty
         self.question_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Actions
+        self.question_table.horizontalHeader().setSectionResizeMode(self.student_history_column, QHeaderView.ResizeMode.ResizeToContents)
+        
+        # Set worksheet column width if enabled
+        if self.enable_worksheet_selection:
+            self.question_table.horizontalHeader().setSectionResizeMode(self.worksheet_column, QHeaderView.ResizeMode.ResizeToContents)
         
         # Connect double-click to view question
         self.question_table.itemDoubleClicked.connect(self._handle_double_click)
@@ -138,6 +206,25 @@ class QuestionBrowser(QWidget):
         
         main_layout.addLayout(pagination_layout)
         
+        # Add worksheet selection controls if enabled
+        if self.enable_worksheet_selection:
+            worksheet_controls = QHBoxLayout()
+            
+            self.selected_count_label = QLabel("0 questions selected for worksheet")
+            worksheet_controls.addWidget(self.selected_count_label, 1)
+            
+            self.clear_worksheet_button = QPushButton("Clear Selection")
+            self.clear_worksheet_button.clicked.connect(self.clear_worksheet_selection)
+            self.clear_worksheet_button.setEnabled(False)
+            worksheet_controls.addWidget(self.clear_worksheet_button)
+            
+            self.create_worksheet_button = QPushButton("Create Worksheet")
+            self.create_worksheet_button.clicked.connect(self._create_worksheet)
+            self.create_worksheet_button.setEnabled(False)
+            worksheet_controls.addWidget(self.create_worksheet_button)
+            
+            main_layout.addLayout(worksheet_controls)
+        
         # Add button
         self.add_button = QPushButton("Add New Question")
         self.add_button.clicked.connect(self._add_new_question)
@@ -145,6 +232,9 @@ class QuestionBrowser(QWidget):
         
         # Load initial data
         self.refresh_questions()
+        
+        # Load student data
+        self._load_student_list()
         
         self.logger.info("Question browser initialized")
     
@@ -157,14 +247,37 @@ class QuestionBrowser(QWidget):
             else:
                 questions = self.question_manager.get_all_questions()
             
+            # Filter out questions that have been answered by the selected student if checkbox is selected
+            student_filter_applied = False
+            if self.current_student_id and self.show_answered_questions:
+                # Get question IDs that have been answered by this student
+                answered_question_ids = set(self.student_answered_questions.keys())
+                
+                # Remove answered questions from the display list
+                filtered_questions = [q for q in questions if q.question_id not in answered_question_ids]
+                
+                # Update the results count
+                filtered_out_count = len(questions) - len(filtered_questions)
+                questions = filtered_questions
+                student_filter_applied = True
+                
             self.total_questions = len(questions)
             
-            # Update results label
+            # Update results label with appropriate text based on filters
+            label_text = ""
             if self.filters:
                 filter_text = ", ".join([f"{k}={v}" for k, v in self.filters.items() if v])
-                self.results_label.setText(f"Showing {self.total_questions} questions ({filter_text})")
+                label_text = f"Showing {self.total_questions} questions ({filter_text})"
             else:
-                self.results_label.setText(f"Showing all {self.total_questions} questions")
+                label_text = f"Showing all {self.total_questions} questions"
+            
+            # Add student filter info if applicable
+            if student_filter_applied:
+                label_text += f" - Hiding questions already answered by {self.current_student_id}"
+            elif self.current_student_id:
+                label_text += f" - Showing question history for {self.current_student_id}"
+                
+            self.results_label.setText(label_text)
             
             # Calculate pagination
             total_pages = max(1, (self.total_questions + self.questions_per_page - 1) // self.questions_per_page)
@@ -241,6 +354,77 @@ class QuestionBrowser(QWidget):
             actions_layout.addWidget(delete_button)
             
             self.question_table.setCellWidget(row, 4, actions_widget)
+            
+            # Student history column (column 5)
+            if self.current_student_id:
+                # Create a widget to show student's history with this question
+                history_widget = QWidget()
+                history_layout = QHBoxLayout(history_widget)
+                history_layout.setContentsMargins(2, 2, 2, 2)
+                
+                question_id = question.question_id
+                
+                if question_id in self.student_answered_questions:
+                    # Question has been answered by this student
+                    worksheet_info = self.student_answered_questions[question_id]
+                    if isinstance(worksheet_info, list) and len(worksheet_info) == 2:
+                        worksheet_id, worksheet_title = worksheet_info
+                        
+                        # Display button showing which worksheet this was in
+                        history_label = QPushButton(f"In WS #{worksheet_id}")
+                        history_label.setToolTip(f"This question appeared in worksheet: {worksheet_title}")
+                        history_label.setStyleSheet("background-color: #FFD580;")  # Light orange color
+                        history_label.setProperty("worksheet_id", worksheet_id)
+                        history_label.clicked.connect(lambda checked, ws_id=worksheet_id: self._show_worksheet_details(ws_id))
+                        
+                        history_layout.addWidget(history_label)
+                    else:
+                        history_label = QLabel("✓ Answered")
+                        history_label.setStyleSheet("color: green; font-weight: bold;")
+                        history_layout.addWidget(history_label)
+                else:
+                    # Question has not been answered by this student
+                    history_label = QLabel("Not seen")
+                    history_layout.addWidget(history_label)
+                
+                self.question_table.setCellWidget(row, self.student_history_column, history_widget)
+            else:
+                # No student selected, just show empty cell
+                self.question_table.setItem(row, self.student_history_column, QTableWidgetItem(""))
+            
+            # Add worksheet selection button if enabled
+            if self.enable_worksheet_selection and self.worksheet_column is not None:
+                worksheet_col = self.worksheet_column
+                worksheet_widget = QWidget()
+                worksheet_layout = QHBoxLayout(worksheet_widget)
+                worksheet_layout.setContentsMargins(2, 2, 2, 2)
+                
+                # Check if question is already selected for worksheet
+                is_selected = any(q.question_id == question.question_id for q in self.selected_for_worksheet)
+                
+                # Check if this question has been answered by the current student
+                already_answered = (self.current_student_id and 
+                                   question.question_id in self.student_answered_questions and 
+                                   self.show_answered_questions)
+                
+                # If already answered by this student, disable adding to worksheet
+                if already_answered:
+                    add_button = QPushButton("Add")
+                    add_button.setEnabled(False)
+                    add_button.setToolTip("This question has already been answered by this student")
+                    worksheet_layout.addWidget(add_button)
+                elif is_selected:
+                    remove_button = QPushButton("Remove")
+                    remove_button.setProperty("question_id", question.question_id)
+                    remove_button.clicked.connect(lambda checked, q=question: self._remove_from_worksheet(q))
+                    worksheet_layout.addWidget(remove_button)
+                else:
+                    add_button = QPushButton("Add")
+                    add_button.setProperty("question_id", question.question_id)
+                    add_button.clicked.connect(lambda checked, q=question: self._add_to_worksheet(q))
+                    worksheet_layout.addWidget(add_button)
+                
+                self.question_table.setCellWidget(row, worksheet_col, worksheet_widget)
         
         self.logger.debug(f"Populated table with {len(self.current_questions)} questions")
     
@@ -263,6 +447,14 @@ class QuestionBrowser(QWidget):
         difficulty = self.difficulty_filter.currentText()
         if difficulty != "All":
             filters['difficulty'] = difficulty
+            
+        # Student filter and answered questions
+        if self.current_student_id and self.show_answered_questions:
+            # Special handling for filtered questions - will be managed in refresh_questions
+            # Just set a flag here
+            self.student_filter_active = True
+        else:
+            self.student_filter_active = False
         
         # Update filters and refresh
         self.filters = filters
@@ -271,11 +463,175 @@ class QuestionBrowser(QWidget):
         
         self.logger.debug(f"Applied filters: {filters}")
     
+    def _load_student_list(self):
+        """Load the list of students for filtering."""
+        try:
+            # Get student list using the question manager's method
+            student_ids = []
+            if hasattr(self.question_manager, 'get_student_list'):
+                student_ids = self.question_manager.get_student_list()
+            
+            # If we couldn't get any student IDs, just keep the "All Students" option
+            if not student_ids:
+                self.logger.warning("No students found or unable to get student list")
+                return
+            
+            # Save current selection
+            current_index = self.student_filter.currentIndex()
+            current_data = self.student_filter.currentData()
+            
+            # Clear the combobox except for the first item ("All Students")
+            while self.student_filter.count() > 1:
+                self.student_filter.removeItem(1)
+            
+            # Add student IDs
+            for student_id in student_ids:
+                self.student_filter.addItem(f"Student: {student_id}", student_id)
+            
+            # Try to restore previous selection, otherwise select "All Students"
+            if current_data:
+                index = self.student_filter.findData(current_data)
+                if index >= 0:
+                    self.student_filter.setCurrentIndex(index)
+                else:
+                    self.student_filter.setCurrentIndex(0)  # All Students
+                
+        except Exception as e:
+            self.logger.error(f"Error loading student list: {str(e)}")
+    
+    def _on_student_changed(self, index):
+        """Handle student selection change."""
+        student_id = self.student_filter.currentData()
+        
+        # Enable or disable the answered checkbox based on student selection
+        self.show_answered_checkbox.setEnabled(student_id is not None)
+        
+        if student_id != self.current_student_id:
+            self.current_student_id = student_id
+            
+            # If a specific student is selected, load their answered questions
+            if student_id:
+                self._load_student_answered_questions(student_id)
+            else:
+                # Clear student data if "All Students" selected
+                self.student_answered_questions = {}
+                self.show_answered_checkbox.setChecked(False)
+                self.show_answered_questions = False
+            
+            # Refresh the table to show student history
+            self.refresh_questions()
+    
+    def _on_answered_filter_changed(self, state):
+        """Handle change in the 'Hide Already Answered' checkbox."""
+        self.show_answered_questions = (state == Qt.CheckState.Checked)
+        self.refresh_questions()
+    
+    def _load_student_answered_questions(self, student_id):
+        """Load the list of questions that have been answered by the student."""
+        try:
+            # Use the question manager method if available
+            if hasattr(self.question_manager, 'get_student_answered_questions'):
+                self.student_answered_questions = self.question_manager.get_student_answered_questions(student_id)
+                self.logger.debug(f"Loaded {len(self.student_answered_questions)} answered questions for student {student_id}")
+                return
+                
+            # Fallback to direct database query if method not available
+            self.logger.warning("Question manager method not available, using fallback approach")
+            
+            # Get access to score repository - multiple approaches for flexibility
+            score_repo = None
+            
+            # Try to get the score repository from question_manager
+            if hasattr(self.question_manager, 'score_repository'):
+                score_repo = self.question_manager.score_repository
+            elif hasattr(self.question_manager, 'db_manager'):
+                # Create a temporary score repository
+                from ..dal.repositories import ScoreRepository
+                score_repo = ScoreRepository(self.question_manager.db_manager)
+            
+            if not score_repo:
+                self.logger.error("Could not access score repository")
+                return
+            
+            # Query the database for all questions this student has answered
+            query = """
+            SELECT s.question_id, s.worksheet_id, w.title 
+            FROM scores s 
+            LEFT JOIN worksheets w ON s.worksheet_id = w.worksheet_id
+            WHERE s.student_id = ? 
+            GROUP BY s.question_id
+            """
+            
+            result = score_repo.db_manager.execute_query(query, (student_id,))
+            
+            # Reset the answered questions dictionary
+            self.student_answered_questions = {}
+            
+            if result:
+                for row in result:
+                    question_id = row['question_id']
+                    worksheet_id = row['worksheet_id']
+                    worksheet_title = row.get('title', f"Worksheet #{worksheet_id}")
+                    
+                    # Store the worksheet information with the question
+                    self.student_answered_questions[question_id] = [worksheet_id, worksheet_title]
+            
+            self.logger.debug(f"Loaded {len(self.student_answered_questions)} answered questions for student {student_id}")
+            
+        except Exception as e:
+            self.logger.error(f"Error loading student answered questions: {str(e)}")
+    
+    def _show_worksheet_details(self, worksheet_id):
+        """Show details for a worksheet."""
+        try:
+            # Get worksheet repository
+            worksheet_repo = None
+            if hasattr(self.question_manager, 'worksheet_repository'):
+                worksheet_repo = self.question_manager.worksheet_repository
+            elif hasattr(self.question_manager, 'db_manager'):
+                # Create a temporary worksheet repository
+                from ..dal.repositories import WorksheetRepository
+                worksheet_repo = WorksheetRepository(self.question_manager.db_manager)
+            
+            if not worksheet_repo:
+                QMessageBox.warning(self, "Error", f"Could not access worksheet repository.")
+                return
+            
+            # Get the worksheet
+            worksheet = worksheet_repo.get_worksheet(worksheet_id)
+            if not worksheet:
+                QMessageBox.warning(self, "Error", f"Worksheet #{worksheet_id} not found.")
+                return
+            
+            # Show worksheet details in a dialog
+            message = f"<b>Worksheet #{worksheet_id}: {worksheet.title}</b><br>"
+            message += f"<p>{worksheet.description}</p>"
+            message += f"<p>Contains {len(worksheet.question_ids)} questions</p>"
+            message += f"<p>Created: {worksheet.created_at.strftime('%Y-%m-%d')}</p>"
+            
+            # If there's a PDF path, show it
+            if worksheet.pdf_path:
+                message += f"<p>PDF: {worksheet.pdf_path}</p>"
+            
+            QMessageBox.information(self, f"Worksheet #{worksheet_id} Details", message)
+            
+        except Exception as e:
+            self.logger.error(f"Error showing worksheet details: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error showing worksheet details: {str(e)}")
+        
+    
     def clear_filters(self):
         """Clear all filters and refresh the question list."""
         self.search_input.clear()
         self.tag_filter.clear()
         self.difficulty_filter.setCurrentIndex(0)  # "All"
+        self.student_filter.setCurrentIndex(0)  # "All Students"
+        self.show_answered_checkbox.setChecked(False)
+        
+        # Reset student-related variables
+        self.current_student_id = None
+        self.student_answered_questions = {}
+        self.show_answered_questions = False
         
         self.filters = {}
         self.current_page = 1  # Reset to first page
@@ -328,6 +684,12 @@ class QuestionBrowser(QWidget):
                 if success:
                     QMessageBox.information(self, "Success", "Question deleted successfully")
                     self.question_deleted.emit(question_id)
+                    
+                    # If question was in worksheet selection, remove it
+                    if self.enable_worksheet_selection:
+                        self.selected_for_worksheet = [q for q in self.selected_for_worksheet 
+                                                      if q.question_id != question_id]
+                    
                     self.refresh_questions()
                 else:
                     QMessageBox.critical(self, "Error", "Failed to delete question")
@@ -338,6 +700,208 @@ class QuestionBrowser(QWidget):
         except Exception as e:
             self.logger.error(f"Error deleting question: {str(e)}")
             QMessageBox.critical(self, "Error", f"Error deleting question: {str(e)}")
+            
+    def _add_to_worksheet(self, question: Question):
+        """
+        Add a question to the worksheet selection.
+        
+        Args:
+            question: The question to add
+        """
+        # Check if question is already in the selection
+        if not any(q.question_id == question.question_id for q in self.selected_for_worksheet):
+            self.selected_for_worksheet.append(question)
+            self.logger.debug(f"Added question {question.question_id} to worksheet selection")
+            
+            # Update UI elements if they exist
+            if hasattr(self, 'selected_count_label'):
+                count = len(self.selected_for_worksheet)
+                self.selected_count_label.setText(f"{count} questions selected for worksheet")
+                self.clear_worksheet_button.setEnabled(count > 0)
+                self.create_worksheet_button.setEnabled(count > 0)
+            
+            # Emit signals with the updated list
+            self.questions_selected_for_worksheet.emit(self.selected_for_worksheet)
+            self.worksheet_selection_changed.emit()
+            
+            # Refresh the table to update the button
+            self.refresh_questions()
+    
+    def _remove_from_worksheet(self, question: Question):
+        """
+        Remove a question from the worksheet selection.
+        
+        Args:
+            question: The question to remove
+        """
+        # Remove the question from the selection
+        self.selected_for_worksheet = [q for q in self.selected_for_worksheet 
+                                      if q.question_id != question.question_id]
+        self.logger.debug(f"Removed question {question.question_id} from worksheet selection")
+        
+        # Update UI elements if they exist
+        if hasattr(self, 'selected_count_label'):
+            count = len(self.selected_for_worksheet)
+            self.selected_count_label.setText(f"{count} questions selected for worksheet")
+            self.clear_worksheet_button.setEnabled(count > 0)
+            self.create_worksheet_button.setEnabled(count > 0)
+        
+        # Emit signals with the updated list
+        self.questions_selected_for_worksheet.emit(self.selected_for_worksheet)
+        self.worksheet_selection_changed.emit()
+        
+        # Refresh the table to update the button
+        self.refresh_questions()
+    
+    def get_selected_for_worksheet(self) -> List[Question]:
+        """
+        Get the list of questions selected for the worksheet.
+        
+        Returns:
+            List of Question objects selected for the worksheet
+        """
+        return self.selected_for_worksheet
+    
+    def set_worksheet_selection_mode(self, enabled: bool):
+        """
+        Set whether worksheet selection mode is enabled.
+        
+        Args:
+            enabled: Whether to enable worksheet selection mode
+        """
+        if self.enable_worksheet_selection == enabled:
+            return
+            
+        self.enable_worksheet_selection = enabled
+        
+        # Update the column count and headers
+        if enabled:
+            # Ensure we have both student history and worksheet columns
+            if self.question_table.columnCount() < 7:
+                # We need 7 columns: ID, Question, Tags, Difficulty, Actions, Student History, Worksheet
+                self.question_table.setColumnCount(7)
+                headers = ["ID", "Question", "Tags", "Difficulty", "Actions", "Student History", "Worksheet"]
+                self.question_table.setHorizontalHeaderLabels(headers)
+                
+                # Set column indices
+                self.student_history_column = 5
+                self.worksheet_column = 6
+                
+                # Set column resize modes
+                self.question_table.horizontalHeader().setSectionResizeMode(self.student_history_column, 
+                                                                          QHeaderView.ResizeMode.ResizeToContents)
+                self.question_table.horizontalHeader().setSectionResizeMode(self.worksheet_column, 
+                                                                          QHeaderView.ResizeMode.ResizeToContents)
+                
+            # Make worksheet selection controls visible if they exist
+            if hasattr(self, 'selected_count_label'):
+                self.selected_count_label.setParent(self)
+                self.clear_worksheet_button.setParent(self)
+                self.create_worksheet_button.setParent(self)
+        else:
+            # We'd keep 6 columns but hide the worksheet column
+            if self.question_table.columnCount() > 6:
+                # Remove worksheet column but keep student history
+                self.question_table.setColumnCount(6)
+                headers = ["ID", "Question", "Tags", "Difficulty", "Actions", "Student History"]
+                self.question_table.setHorizontalHeaderLabels(headers)
+                
+                # We still have student history
+                self.student_history_column = 5
+                # But no worksheet column
+                self.worksheet_column = None
+                
+            # Hide worksheet selection controls if they exist
+            if hasattr(self, 'selected_count_label'):
+                self.selected_count_label.setParent(None)
+                self.clear_worksheet_button.setParent(None)
+                self.create_worksheet_button.setParent(None)
+        
+        # Refresh the table to update the display
+        self.refresh_questions()
+        
+    def add_to_worksheet(self, question_id: int):
+        """
+        Add a question to the worksheet by ID.
+        
+        Args:
+            question_id: ID of the question to add
+        """
+        # Check if already in the selection
+        if any(q.question_id == question_id for q in self.selected_for_worksheet):
+            return
+            
+        # Get the question from the manager
+        try:
+            question = self.question_manager.get_question(question_id)
+            if question:
+                self._add_to_worksheet(question)
+        except Exception as e:
+            self.logger.error(f"Error adding question to worksheet: {str(e)}")
+    
+    def load_questions_to_worksheet(self, questions: List[Question]):
+        """
+        Load a list of questions into the worksheet selection.
+        
+        Args:
+            questions: List of questions to add to the worksheet
+        """
+        self.selected_for_worksheet = questions.copy()
+        
+        # Update UI elements if available
+        if hasattr(self, 'selected_count_label'):
+            count = len(self.selected_for_worksheet)
+            self.selected_count_label.setText(f"{count} questions selected for worksheet")
+            self.clear_worksheet_button.setEnabled(count > 0)
+            self.create_worksheet_button.setEnabled(count > 0)
+        
+        # Emit signals
+        self.questions_selected_for_worksheet.emit(self.selected_for_worksheet)
+        self.worksheet_selection_changed.emit()
+        
+        # Refresh display
+        self.refresh_questions()
+    
+    def clear_worksheet_selections(self):
+        """Clear all questions from the worksheet selection."""
+        if not self.selected_for_worksheet:
+            return
+            
+        self.selected_for_worksheet.clear()
+        
+        # Update UI elements if available
+        if hasattr(self, 'selected_count_label'):
+            self.selected_count_label.setText("0 questions selected for worksheet")
+            self.clear_worksheet_button.setEnabled(False)
+            self.create_worksheet_button.setEnabled(False)
+        
+        # Emit signals
+        self.questions_selected_for_worksheet.emit(self.selected_for_worksheet)
+        self.worksheet_selection_changed.emit()
+        
+        # Refresh display
+        self.refresh_questions()
+    
+    # Maintain backward compatibility
+    get_selected_worksheet_questions = get_selected_for_worksheet
+    clear_worksheet_selection = clear_worksheet_selections
+    
+    def _create_worksheet(self):
+        """Create a worksheet with the selected questions."""
+        if not self.selected_for_worksheet:
+            QMessageBox.warning(self, "Warning", "No questions selected for worksheet")
+            return
+            
+        # Emit the signal with the selected questions
+        self.questions_selected_for_worksheet.emit(self.selected_for_worksheet)
+        
+        # Show confirmation message
+        count = len(self.selected_for_worksheet)
+        QMessageBox.information(
+            self, 
+            "Worksheet Created", 
+            f"Created worksheet with {count} questions. Go to the Worksheet tab to configure and generate the PDF."
+        )
 
 
 class QuestionDetailDialog(QDialog):

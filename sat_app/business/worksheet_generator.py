@@ -96,6 +96,47 @@ class WorksheetGenerator:
             self.logger.error(f"Error generating worksheet: {str(e)}")
             raise
     
+    def generate_from_questions(self, title: str, description: str, questions: List[Question],
+                              randomize_questions: bool = True,
+                              randomize_answers: bool = True) -> Dict[str, Any]:
+        """
+        Generate a worksheet from a list of Question objects.
+        
+        Args:
+            title: Worksheet title
+            description: Worksheet description
+            questions: List of Question objects to include in the worksheet
+            randomize_questions: Whether to randomize the order of questions
+            randomize_answers: Whether to randomize the order of answer choices
+        
+        Returns:
+            A dictionary containing the worksheet data (same as generate_worksheet())
+        
+        Raises:
+            ValueError: If no questions are provided
+        """
+        try:
+            if not questions:
+                raise ValueError("No questions provided for worksheet generation")
+            
+            # Create a worksheet with the selected question IDs
+            worksheet = Worksheet(
+                title=title,
+                description=description,
+                question_ids=[q.question_id for q in questions]
+            )
+            
+            # Generate the worksheet with the selected questions
+            return self.generate_worksheet(
+                worksheet, 
+                randomize_questions=randomize_questions,
+                randomize_answers=randomize_answers
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error generating worksheet from questions: {str(e)}")
+            raise
+            
     def generate_from_filters(self, title: str, description: str, filters: Dict[str, Any], 
                              count: int = 10, randomize_questions: bool = True,
                              randomize_answers: bool = True) -> Dict[str, Any]:
@@ -129,17 +170,12 @@ class WorksheetGenerator:
             # Randomize the selection if we have more questions than needed
             if len(questions) > count:
                 questions = random.sample(questions, count)
-            
-            # Create a worksheet with the selected question IDs
-            worksheet = Worksheet(
+                
+            # Use the generate_from_questions method to create the worksheet
+            return self.generate_from_questions(
                 title=title,
                 description=description,
-                question_ids=[q.question_id for q in questions]
-            )
-            
-            # Generate the worksheet with the selected questions
-            return self.generate_worksheet(
-                worksheet, 
+                questions=questions,
                 randomize_questions=randomize_questions,
                 randomize_answers=randomize_answers
             )

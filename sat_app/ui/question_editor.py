@@ -37,23 +37,29 @@ class LatexPreviewWidget(QWidget):
         # Create layout
         layout = QVBoxLayout(self)
         
-        # Add preview label
+        # Add preview label - reduced height and padding for more proportion
         self.preview_label = QLabel("LaTeX Preview")
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview_label.setStyleSheet("background-color: white; border: 1px solid #ccc; padding: 10px;")
-        self.preview_label.setMinimumHeight(60)
+        self.preview_label.setStyleSheet(
+            "background-color: white; border: 1px solid #ccc; padding: 6px;"
+        )
+        # Reduced minimum height to better match text size
+        self.preview_label.setMinimumHeight(40) 
+        # Constrain maximum height to prevent oversized previews
+        self.preview_label.setMaximumHeight(60)
         layout.addWidget(self.preview_label)
         
         # Add help button and text
         help_layout = QHBoxLayout()
         help_text = QLabel("Use $...$ for inline math. Example: $\\frac{x}{y}$ or $\\sqrt{x^2 + y^2}$")
-        help_text.setStyleSheet("font-style: italic; color: #666;")
+        help_text.setStyleSheet("font-style: italic; color: #666; font-size: 9pt;")
         help_layout.addWidget(help_text)
         help_layout.addStretch()
         
         # Add refresh button
         self.refresh_button = QPushButton("Refresh Preview")
         self.refresh_button.clicked.connect(self.update_preview)
+        self.refresh_button.setMaximumWidth(120) # Constrain button width
         help_layout.addWidget(self.refresh_button)
         
         layout.addLayout(help_layout)
@@ -103,7 +109,15 @@ class LatexPreviewWidget(QWidget):
                 pixmap = QPixmap()
                 pixmap.loadFromData(QByteArray(preview_data))
                 if not pixmap.isNull():
-                    self.preview_label.setPixmap(pixmap)
+                    # Scale the pixmap to a more appropriate size for UI display
+                    # This ensures the preview is proportional to surrounding UI elements
+                    scaled_pixmap = pixmap.scaled(
+                        pixmap.width() * 0.8,  # Scale to 80% of original width
+                        pixmap.height() * 0.8,  # Scale to 80% of original height
+                        Qt.AspectRatioMode.KeepAspectRatio, 
+                        Qt.TransformationMode.SmoothTransformation
+                    )
+                    self.preview_label.setPixmap(scaled_pixmap)
                     self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                     return
             

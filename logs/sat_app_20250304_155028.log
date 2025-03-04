@@ -1,0 +1,13 @@
+2025-03-04 15:50:28 - __main__ - INFO - Starting SAT Question Bank Application
+2025-03-04 15:50:28 - sat_app.config.config_manager - INFO - Configuration loaded successfully
+2025-03-04 15:50:28 - sat_app.config.config_manager - INFO - Created required directories
+2025-03-04 15:50:28 - sat_app.dal.database_manager - INFO - Database initialized successfully at data/sat_app.db
+2025-03-04 15:50:29 - sat_app.ui.question_browser - INFO - Question browser initialized
+2025-03-04 15:50:29 - sat_app.ui.question_editor - INFO - Question editor initialized
+2025-03-04 15:50:29 - sat_app.ui.main_window - INFO - Main window initialized
+2025-03-04 15:50:41 - sat_app.business.worksheet_generator - INFO - Generated worksheet with 4 questions, randomize_questions=True, randomize_answers=True
+2025-03-04 15:50:41 - sat_app.business.worksheet_generator - INFO - Saved worksheet 4 with 4 questions
+2025-03-04 15:50:42 - sat_app.rendering.pdf_generator - INFO - Updated worksheet 4 with PDF path: data/worksheets/worksheet_20250304_155041.pdf
+2025-03-04 15:50:42 - sat_app.rendering.pdf_generator - INFO - Generated worksheet PDF: data/worksheets/worksheet_20250304_155041.pdf
+2025-03-04 15:50:42 - sat_app.ui.main_window - INFO - Generated worksheet PDF with 4 questions: data/worksheets/worksheet_20250304_155041.pdf
+2025-03-04 15:56:31 - sat_app.ui.main_window - INFO - Application closed
