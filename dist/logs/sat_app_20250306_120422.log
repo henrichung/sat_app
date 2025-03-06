@@ -1,0 +1,9 @@
+2025-03-06 12:04:22 - __main__ - INFO - Starting SAT Question Bank Application
+2025-03-06 12:04:22 - sat_app.config.config_manager - INFO - Config file not found at config/config.json. Creating default configuration.
+2025-03-06 12:04:22 - sat_app.config.config_manager - INFO - Created required directories
+2025-03-06 12:04:22 - sat_app.dal.database_manager - INFO - Database initialized successfully at data/sat_app.db
+2025-03-06 12:04:23 - sat_app.ui.question_browser - WARNING - No students found or unable to get student list
+2025-03-06 12:04:23 - sat_app.ui.question_browser - INFO - Question browser initialized
+2025-03-06 12:04:23 - sat_app.ui.question_editor - INFO - Question editor initialized
+2025-03-06 12:04:23 - sat_app.ui.main_window - INFO - Main window initialized
+2025-03-06 12:04:42 - sat_app.ui.main_window - INFO - Application closed

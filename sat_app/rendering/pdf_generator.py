@@ -33,16 +33,9 @@ os.environ['PILLOW_DISABLE_LIBTIFF'] = '1' # Disable TIFF library (causes symbol
 os.environ['PILLOW_DISABLE_WEBP'] = '1'    # Disable WebP support
 os.environ['PILLOW_DISABLE_OPENEXR'] = '1' # Disable OpenEXR
 
-# Use a safe approach for PIL imports
-try:
-    # First try the direct import with disabled libraries
-    from PIL import Image as PILImage
-    print("Using direct PIL import with disabled extensions in pdf_generator")
-except ImportError as e:
-    print(f"Warning: PIL import failed: {e}, using safe wrapper")
-    # Fall back to our safe wrapper
-    from sat_app.rendering.safe_pillow import get_image
-    PILImage = get_image()
+# Use our safe wrapper for PIL imports - safer for PyInstaller packaging
+from sat_app.rendering.safe_pillow import get_image
+PILImage = get_image()
 
 # For LaTeX rendering
 import sympy
