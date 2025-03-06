@@ -4,14 +4,14 @@ Provides functionality to select questions for worksheets and configure workshee
 """
 import os
 from typing import List, Dict, Any, Optional
-from PyQt6.QtWidgets import (
+from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QCheckBox,
     QGroupBox, QFormLayout, QMessageBox, QSplitter, QAbstractItemView,
     QScrollArea, QTextEdit, QSpinBox
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QPixmap
+from PyQt5.QtCore import Qt, pyqtSignal, QSize
+from PyQt5.QtGui import QPixmap
 
 from ..business.question_manager import QuestionManager
 from ..business.worksheet_generator import WorksheetGenerator
@@ -77,7 +77,7 @@ class WorksheetView(QWidget):
         main_layout.addLayout(header_layout)
         
         # Main content
-        self.content_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.content_splitter = QSplitter(Qt.Horizontal)
         main_layout.addWidget(self.content_splitter, 1)  # Give it stretch
         
         # Right panel: Worksheet settings and preview
@@ -124,7 +124,7 @@ class WorksheetView(QWidget):
         self.preview_content = QWidget()
         self.preview_layout = QVBoxLayout(self.preview_content)
         self.preview_label = QLabel("Select questions to preview worksheet")
-        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_label.setAlignment(Qt.AlignCenter)
         self.preview_layout.addWidget(self.preview_label)
         
         self.preview_scroll.setWidget(self.preview_content)
@@ -237,7 +237,7 @@ class WorksheetView(QWidget):
         if not self.selected_questions:
             # No questions selected
             self.preview_label = QLabel("Select questions to preview worksheet")
-            self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.preview_label.setAlignment(Qt.AlignCenter)
             self.preview_layout.addWidget(self.preview_label)
             return
         

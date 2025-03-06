@@ -4,14 +4,15 @@ Provides functionality to browse, search, and filter questions.
 """
 import os
 from typing import List, Dict, Any, Optional
-from PyQt6.QtWidgets import (
+from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QCheckBox,
     QGroupBox, QFormLayout, QMessageBox, QMenu, QAbstractItemView,
     QDialog, QDialogButtonBox, QScrollArea
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QAction, QIcon
+from PyQt5.QtCore import Qt, pyqtSignal, QSize
+from PyQt5.QtWidgets import QAction
+from PyQt5.QtGui import QIcon
 
 from ..business.question_manager import QuestionManager
 from ..dal.models import Question
@@ -198,7 +199,7 @@ class QuestionBrowser(QWidget):
         pagination_layout.addWidget(self.prev_page_button)
         
         self.page_label = QLabel("Page 1")
-        pagination_layout.addWidget(self.page_label, 1, Qt.AlignmentFlag.AlignCenter)
+        pagination_layout.addWidget(self.page_label, 1, Qt.AlignCenter)
         
         self.next_page_button = QPushButton("Next")
         self.next_page_button.clicked.connect(self.next_page)
@@ -675,11 +676,11 @@ class QuestionBrowser(QWidget):
                 self,
                 "Confirm Deletion",
                 f"Are you sure you want to delete question {question_id}?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
             )
             
-            if confirm == QMessageBox.StandardButton.Yes:
+            if confirm == QMessageBox.Yes:
                 success = self.question_manager.delete_question(question_id)
                 if success:
                     QMessageBox.information(self, "Success", "Question deleted successfully")

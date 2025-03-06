@@ -6,12 +6,12 @@ import os
 import logging
 from typing import Dict, Any, Optional
 
-from PyQt6.QtWidgets import (
+from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QLineEdit,
     QPushButton, QComboBox, QSpinBox, QFormLayout, QFileDialog,
     QMessageBox, QGroupBox, QScrollArea, QSizePolicy, QCheckBox
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal
 
 from sat_app.business.settings_manager import SettingsManager
 
@@ -300,11 +300,11 @@ class SettingsView(QWidget):
             self, "Reset Settings",
             "Are you sure you want to reset all settings to default values?\n\n"
             "This cannot be undone.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
         )
         
-        if reply == QMessageBox.StandardButton.Yes:
+        if reply == QMessageBox.Yes:
             try:
                 # Reset settings
                 if self.settings_manager.reset_to_defaults():

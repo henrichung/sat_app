@@ -25,7 +25,24 @@ from reportlab.platypus import (
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from PIL import Image as PILImage
+
+# Force PIL to avoid problematic libraries BEFORE importing
+import os
+os.environ['PILLOW_DISABLE_JPEG2K'] = '1'  # Disable JPEG2000 support
+os.environ['PILLOW_DISABLE_LIBTIFF'] = '1' # Disable TIFF library (causes symbol errors)
+os.environ['PILLOW_DISABLE_WEBP'] = '1'    # Disable WebP support
+os.environ['PILLOW_DISABLE_OPENEXR'] = '1' # Disable OpenEXR
+
+# Use a safe approach for PIL imports
+try:
+    # First try the direct import with disabled libraries
+    from PIL import Image as PILImage
+    print("Using direct PIL import with disabled extensions in pdf_generator")
+except ImportError as e:
+    print(f"Warning: PIL import failed: {e}, using safe wrapper")
+    # Fall back to our safe wrapper
+    from sat_app.rendering.safe_pillow import get_image
+    PILImage = get_image()
 
 # For LaTeX rendering
 import sympy
@@ -172,7 +189,19 @@ class LatexEquationRenderer:
                     scale_factor = 0.7  # Reduce to 70% of original size
                     new_width = int(original_width * scale_factor)
                     new_height = int(original_height * scale_factor)
-                    resized_img = img.resize((new_width, new_height), PILImage.LANCZOS)
+                    # Use safer resizing methods with fallbacks
+                    try:
+                        # Try LANCZOS first (highest quality)
+                        resized_img = img.resize((new_width, new_height), PILImage.LANCZOS)
+                    except (AttributeError, ImportError) as e:
+                        print(f"Warning: LANCZOS resize failed, trying BICUBIC: {e}")
+                        try:
+                            # Fall back to BICUBIC
+                            resized_img = img.resize((new_width, new_height), PILImage.BICUBIC)
+                        except (AttributeError, ImportError) as e:
+                            print(f"Warning: BICUBIC resize failed, using simple resize: {e}")
+                            # Last resort simple resize
+                            resized_img = img.resize((new_width, new_height))
                     
                     # Add minimal padding and white background
                     padded = PILImage.new(
@@ -276,7 +305,19 @@ class LatexEquationRenderer:
                     scale_factor = 0.8  # Slightly larger than in PDF for better UI visibility
                     new_width = int(original_width * scale_factor)
                     new_height = int(original_height * scale_factor)
-                    resized_img = img.resize((new_width, new_height), PILImage.LANCZOS)
+                    # Use safer resizing methods with fallbacks
+                    try:
+                        # Try LANCZOS first (highest quality)
+                        resized_img = img.resize((new_width, new_height), PILImage.LANCZOS)
+                    except (AttributeError, ImportError) as e:
+                        print(f"Warning: LANCZOS resize failed, trying BICUBIC: {e}")
+                        try:
+                            # Fall back to BICUBIC
+                            resized_img = img.resize((new_width, new_height), PILImage.BICUBIC)
+                        except (AttributeError, ImportError) as e:
+                            print(f"Warning: BICUBIC resize failed, using simple resize: {e}")
+                            # Last resort simple resize
+                            resized_img = img.resize((new_width, new_height))
                     
                     # Add minimal padding for UI display
                     padded = PILImage.new(

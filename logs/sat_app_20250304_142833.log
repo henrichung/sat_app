@@ -1,4 +1,0 @@
-2025-03-04 14:28:33 - __main__ - INFO - Starting SAT Question Bank Application
-2025-03-04 14:28:33 - sat_app.config.config_manager - INFO - Configuration loaded successfully
-2025-03-04 14:28:33 - sat_app.config.config_manager - INFO - Created required directories
-2025-03-04 14:28:33 - sat_app.dal.database_manager - INFO - Database initialized successfully at data/sat_app.db

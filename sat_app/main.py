@@ -4,9 +4,90 @@ SAT Question Bank & Worksheet Generator
 Main Application Entry Point
 """
 import sys
+import os
 import logging
-from PyQt6.QtWidgets import QApplication
+import site
+import importlib.machinery
+import importlib.util
 
+# Get the application directory
+if getattr(sys, 'frozen', False):
+    # Running as bundle (frozen)
+    bundle_dir = os.path.dirname(sys.executable)
+    sys.path.insert(0, bundle_dir)
+    
+    # Add PyQt5 path specifically if we're frozen
+    # Look for PyQt5 in potential locations
+    potential_pyqt_paths = [
+        os.path.join(bundle_dir, 'PyQt5'),
+        os.path.join(bundle_dir, 'lib', 'PyQt5'),
+        os.path.join(bundle_dir, 'lib', 'site-packages', 'PyQt5'),
+        os.path.join(bundle_dir, 'pkgs', 'PyQt5'),
+    ]
+    
+    for path in potential_pyqt_paths:
+        if os.path.exists(path):
+            if path not in sys.path:
+                sys.path.insert(0, path)
+                print(f"Added PyQt5 path: {path}")
+                break
+else:
+    # Running in normal Python environment
+    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+
+# Try importing PyQt5 with detailed error reporting
+try:
+    # First try to import sip - it's needed by PyQt5
+    try:
+        import sip
+        print(f"Successfully imported sip from {sip.__file__}")
+    except ImportError as e:
+        print(f"Warning: Could not import sip directly: {e}")
+        # It might be inside PyQt5, which is fine
+        
+    # Now try to import PyQt5
+    import PyQt5
+    print(f"Successfully imported PyQt5 from {PyQt5.__file__}")
+    
+    # Try to import sip through PyQt5 if needed
+    try:
+        import PyQt5.sip
+        print(f"Successfully imported PyQt5.sip")
+    except ImportError as e:
+        print(f"Warning: Could not import PyQt5.sip: {e}")
+        # Only warn, don't fail, as some versions have different structure
+        
+    # Finally import the widgets module
+    from PyQt5.QtWidgets import QApplication
+    from PyQt5.QtCore import Qt
+    print("Successfully imported PyQt5.QtWidgets and PyQt5.QtCore")
+except ImportError as e:
+    print(f"Error importing PyQt5: {e}")
+    print(f"Current sys.path: {sys.path}")
+    if getattr(sys, 'frozen', False):
+        print(f"Frozen application directory: {bundle_dir}")
+        # List contents to help debugging
+        print("Directory contents:")
+        # os.walk doesn't support maxdepth parameter
+        level = 0
+        max_level = 2
+        for root, dirs, files in os.walk(bundle_dir, topdown=True):
+            level = root.count(os.sep) - bundle_dir.count(os.sep)
+            if level > max_level:
+                del dirs[:]  # Don't go deeper
+                continue
+                
+            print(f"Directory: {root}")
+            for d in dirs:
+                print(f"  Dir: {d}")
+            for f in files:
+                if 'pyqt' in f.lower() or 'sip' in f.lower():
+                    print(f"  File: {f}")
+    sys.exit(1)
+
+# Import application modules
 from sat_app.config.config_manager import ConfigManager
 from sat_app.dal.database_manager import DatabaseManager
 from sat_app.business.manager_factory import ManagerFactory

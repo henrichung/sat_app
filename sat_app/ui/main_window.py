@@ -3,13 +3,13 @@ Main window for the SAT Question Bank application.
 Provides the main application window and navigation between modules.
 """
 import logging
-from PyQt6.QtWidgets import (
+from PyQt5.QtWidgets import (
     QMainWindow, QTabWidget, QVBoxLayout, QHBoxLayout, QWidget, 
     QLabel, QStatusBar, QMessageBox, QSplitter, QCheckBox, QPushButton,
     QLineEdit, QTextEdit, QGroupBox, QFormLayout
 )
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QIcon
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QIcon
 
 from sat_app.config.config_manager import ConfigManager
 from sat_app.dal.database_manager import DatabaseManager
@@ -109,7 +109,7 @@ class MainWindow(QMainWindow):
         questions_layout = QVBoxLayout(questions_tab)
         
         # Main splitter - Left side for questions, right side for editor/worksheet
-        main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_splitter = QSplitter(Qt.Horizontal)
         
         # Left panel for question browser
         left_panel = QWidget()
@@ -232,7 +232,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(tab)
         
         label = QLabel(f"{message}\n\nThis module is under construction.")
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label.setAlignment(Qt.AlignCenter)
         layout.addWidget(label)
         
         self.tab_widget.addTab(tab, title)
@@ -312,9 +312,9 @@ class MainWindow(QMainWindow):
                 self, 
                 "Clear Selections?", 
                 "Do you want to clear your worksheet selections?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                QMessageBox.Yes | QMessageBox.No
             )
-            if response == QMessageBox.StandardButton.Yes:
+            if response == QMessageBox.Yes:
                 self.question_browser.clear_worksheet_selections()
             
         # If switching to worksheet mode, make sure we're in question editing mode

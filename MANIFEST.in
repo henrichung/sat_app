@@ -1,0 +1,6 @@
+include README.md
+include config/config.json
+include LICENSE
+recursive-include sat_app/assets *
+recursive-include data/images *
+recursive-include data/worksheets *
