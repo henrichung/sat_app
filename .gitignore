@@ -1,6 +1,4 @@
-tools/
 data/
-runtime-hooks
 build
 development.md
 CLAUDE.md

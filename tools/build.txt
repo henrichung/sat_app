@@ -1,0 +1,6 @@
+# for windows powershell
+python -m PyInstaller --add-data "config/config.json;config" --add-data `
+  "sat_app/assets;sat_app/assets" --hidden-import PIL --hidden-import PIL.Image `
+  --hidden-import PIL.ImageDraw --hidden-import PIL.JpegImagePlugin --hidden-import `
+  PIL.PngImagePlugin --exclude PyQt6 --exclude PySide6 -F sat_app/main.py `
+  tools/fix_pil.py --name "SAT App" --icon sat_app/assets/icon.ico
