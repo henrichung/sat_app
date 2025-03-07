@@ -19,7 +19,7 @@ def main():
     
     # Runtime hooks
     runtime_hooks_str = "[]"  # Default to empty list
-    hook_path = os.path.join(project_dir, "runtime-hooks", "pil_import_hook.py")
+    hook_path = os.path.join(project_dir, "tools", "runtime-hooks", "pil_import_hook.py")
     if os.path.exists(hook_path):
         hook_path_clean = hook_path.replace("\\", "/")
         runtime_hooks_str = f"[r'{hook_path_clean}']"

@@ -10,7 +10,7 @@
         "worksheets_dir": "data/worksheets"
     },
     "ui": {
-        "theme": "light",
-        "font_size": 12
+        "theme": "dark",
+        "font_size": 14
     }
 }
