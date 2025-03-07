@@ -180,29 +180,65 @@ class QuestionManager:
             self.logger.error(f"Error getting question: {str(e)}")
             return None
     
-    def get_all_questions(self) -> List[Question]:
+    def get_all_questions(self, limit=None, offset=None) -> List[Question]:
         """
-        Get all questions.
+        Get all questions with pagination support.
+        
+        Args:
+            limit: Maximum number of questions to return (for pagination)
+            offset: Number of questions to skip (for pagination)
         
         Returns:
-            A list of all Questions
+            A list of Questions, potentially limited by pagination parameters
         """
-        return self.question_repository.get_all_questions()
+        return self.question_repository.get_all_questions(limit=limit, offset=offset)
     
-    def filter_questions(self, filters: Dict[str, Any]) -> List[Question]:
+    def filter_questions(self, filters: Dict[str, Any], limit=None, offset=None) -> List[Question]:
         """
-        Filter questions based on criteria.
+        Filter questions based on criteria with pagination support.
         
         Args:
             filters: Dictionary of filter criteria, which may include:
                 - text_search: Text to search for in question text
                 - subject_tags: List or string of subject tags to filter by
                 - difficulty: Difficulty level to filter by
+                - exclude_ids: List of question IDs to exclude
+            limit: Maximum number of questions to return (for pagination)
+            offset: Number of questions to skip (for pagination)
         
         Returns:
             A list of Questions matching the criteria
         """
-        return self.question_repository.filter_questions(filters)
+        return self.question_repository.filter_questions(filters, limit=limit, offset=offset)
+    
+    def count_all_questions(self) -> int:
+        """
+        Count all questions without fetching them.
+        
+        Returns:
+            The total number of questions in the database
+        """
+        try:
+            return self.question_repository.count_all_questions()
+        except Exception as e:
+            self.logger.error(f"Error counting questions: {str(e)}")
+            return 0
+    
+    def count_filtered_questions(self, filters: Dict[str, Any]) -> int:
+        """
+        Count questions matching the filters without fetching them.
+        
+        Args:
+            filters: Dictionary of filter criteria
+            
+        Returns:
+            The number of questions matching the filter criteria
+        """
+        try:
+            return self.question_repository.count_filtered_questions(filters)
+        except Exception as e:
+            self.logger.error(f"Error counting filtered questions: {str(e)}")
+            return 0
     
     def get_questions_by_tag(self, tag: str) -> List[Question]:
         """

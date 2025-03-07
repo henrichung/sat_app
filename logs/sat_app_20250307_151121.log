@@ -1,0 +1,12 @@
+2025-03-07 15:11:21 - __main__ - INFO - Starting SAT Question Bank Application
+2025-03-07 15:11:21 - sat_app.config.config_manager - INFO - Configuration loaded successfully
+2025-03-07 15:11:22 - sat_app.config.config_manager - INFO - Created required directories
+2025-03-07 15:11:22 - sat_app.dal.database_manager - INFO - Database initialized successfully at data/sat_app.db
+2025-03-07 15:11:22 - sat_app.business.question_manager - ERROR - Error counting questions: 'QuestionRepository' object has no attribute 'count_all_questions'
+2025-03-07 15:11:22 - sat_app.ui.question_browser - ERROR - Error refreshing questions: QuestionRepository.get_all_questions() got an unexpected keyword argument 'limit'
+2025-03-07 15:11:30 - sat_app.ui.question_browser - INFO - Question browser initialized
+2025-03-07 15:11:30 - sat_app.ui.question_editor - INFO - Question editor initialized
+2025-03-07 15:11:30 - sat_app.ui.import_export_view - ERROR - Error populating subject tags: QuestionRepository.get_all_questions() got an unexpected keyword argument 'limit'
+2025-03-07 15:11:30 - sat_app.ui.import_export_view - ERROR - Error populating difficulty levels: QuestionRepository.get_all_questions() got an unexpected keyword argument 'limit'
+2025-03-07 15:11:30 - sat_app.ui.main_window - INFO - Main window initialized
+2025-03-07 15:22:43 - sat_app.ui.main_window - INFO - Application closed

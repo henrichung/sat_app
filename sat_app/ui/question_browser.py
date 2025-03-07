@@ -242,32 +242,50 @@ class QuestionBrowser(QWidget):
     def refresh_questions(self):
         """Refresh the question list with current filters and pagination."""
         try:
-            # Get filtered questions
+            # Calculate pagination parameters
+            limit = self.questions_per_page
+            offset = (self.current_page - 1) * self.questions_per_page
+
+            # Get total questions count for pagination (without fetching all questions)
             if self.filters:
-                questions = self.question_manager.filter_questions(self.filters)
+                self.total_questions = self.question_manager.count_filtered_questions(self.filters)
             else:
-                questions = self.question_manager.get_all_questions()
-            
-            # Filter out questions that have been answered by the selected student if checkbox is selected
+                self.total_questions = self.question_manager.count_all_questions()
+                
+            # Apply student filtering if needed
             student_filter_applied = False
             if self.current_student_id and self.show_answered_questions:
-                # Get question IDs that have been answered by this student
+                # Get answered question IDs for filtering
                 answered_question_ids = set(self.student_answered_questions.keys())
                 
-                # Remove answered questions from the display list
-                filtered_questions = [q for q in questions if q.question_id not in answered_question_ids]
+                # Add to filters to exclude these questions at the database level
+                if answered_question_ids:
+                    if 'exclude_ids' not in self.filters:
+                        self.filters['exclude_ids'] = []
+                    self.filters['exclude_ids'].extend(list(answered_question_ids))
+                    
+                # Recalculate total count with exclusions
+                if self.filters:
+                    self.total_questions = self.question_manager.count_filtered_questions(self.filters)
                 
-                # Update the results count
-                filtered_out_count = len(questions) - len(filtered_questions)
-                questions = filtered_questions
                 student_filter_applied = True
-                
-            self.total_questions = len(questions)
+            
+            # Fetch only the questions for the current page using LIMIT/OFFSET
+            if self.filters:
+                self.current_questions = self.question_manager.filter_questions(
+                    self.filters, limit=limit, offset=offset
+                )
+            else:
+                self.current_questions = self.question_manager.get_all_questions(
+                    limit=limit, offset=offset
+                )
             
             # Update results label with appropriate text based on filters
             label_text = ""
             if self.filters:
-                filter_text = ", ".join([f"{k}={v}" for k, v in self.filters.items() if v])
+                # Create readable filter text (exclude internal exclude_ids filter)
+                filter_text = ", ".join([f"{k}={v}" for k, v in self.filters.items() 
+                                       if v and k != 'exclude_ids'])
                 label_text = f"Showing {self.total_questions} questions ({filter_text})"
             else:
                 label_text = f"Showing all {self.total_questions} questions"
@@ -282,8 +300,10 @@ class QuestionBrowser(QWidget):
             
             # Calculate pagination
             total_pages = max(1, (self.total_questions + self.questions_per_page - 1) // self.questions_per_page)
-            if self.current_page > total_pages:
+            if self.current_page > total_pages and total_pages > 0:
                 self.current_page = total_pages
+                # Re-fetch with adjusted page if needed
+                return self.refresh_questions()
             
             # Update page label
             self.page_label.setText(f"Page {self.current_page} of {total_pages}")
@@ -291,11 +311,6 @@ class QuestionBrowser(QWidget):
             # Enable/disable pagination buttons
             self.prev_page_button.setEnabled(self.current_page > 1)
             self.next_page_button.setEnabled(self.current_page < total_pages)
-            
-            # Get current page questions
-            start_idx = (self.current_page - 1) * self.questions_per_page
-            end_idx = min(start_idx + self.questions_per_page, self.total_questions)
-            self.current_questions = questions[start_idx:end_idx]
             
             # Populate table
             self._populate_table()

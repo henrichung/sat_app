@@ -4,7 +4,7 @@ Implements CRUD operations for data models.
 """
 import json
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 from .database_manager import DatabaseManager
 from .models import Question, Worksheet, Score
@@ -142,15 +142,26 @@ class QuestionRepository:
             self.logger.error(f"Error deleting question: {str(e)}")
             return False
     
-    def get_all_questions(self) -> List[Question]:
+    def get_all_questions(self, limit: Optional[int] = None, offset: Optional[int] = None) -> List[Question]:
         """
-        Get all questions.
+        Get all questions with pagination support.
+        
+        Args:
+            limit: Maximum number of questions to return
+            offset: Number of questions to skip
         
         Returns:
-            A list of all Questions
+            A list of Questions with pagination applied
         """
         try:
             query = "SELECT * FROM questions ORDER BY question_id"
+            
+            # Add pagination if specified
+            if limit is not None:
+                query += f" LIMIT {limit}"
+                if offset is not None:
+                    query += f" OFFSET {offset}"
+            
             result = self.db_manager.execute_query(query)
             
             if not result:
@@ -162,38 +173,80 @@ class QuestionRepository:
             self.logger.error(f"Error getting all questions: {str(e)}")
             return []
     
-    def filter_questions(self, filters: Dict[str, Any]) -> List[Question]:
+    def count_all_questions(self) -> int:
         """
-        Filter questions based on criteria.
+        Count all questions in the database.
+        
+        Returns:
+            Total number of questions
+        """
+        try:
+            query = "SELECT COUNT(*) as count FROM questions"
+            result = self.db_manager.execute_query(query)
+            
+            if not result:
+                return 0
+                
+            return result[0]['count']
+            
+        except Exception as e:
+            self.logger.error(f"Error counting questions: {str(e)}")
+            return 0
+    
+    def _build_filter_conditions(self, filters: Dict[str, Any]) -> Tuple[List[str], List]:
+        """
+        Helper method to build WHERE conditions from filters.
         
         Args:
             filters: Dictionary of filter criteria
         
         Returns:
-            A list of Questions matching the criteria
+            Tuple of (conditions list, parameters list)
+        """
+        conditions = []
+        params = []
+        
+        # Build query conditions based on filters
+        if 'text_search' in filters and filters['text_search']:
+            conditions.append("question_text LIKE ?")
+            params.append(f"%{filters['text_search']}%")
+        
+        if 'subject_tags' in filters and filters['subject_tags']:
+            tags = filters['subject_tags']
+            if isinstance(tags, list):
+                for tag in tags:
+                    conditions.append("subject_tags LIKE ?")
+                    params.append(f"%{tag}%")
+            else:
+                conditions.append("subject_tags LIKE ?")
+                params.append(f"%{tags}%")
+        
+        if 'difficulty' in filters and filters['difficulty']:
+            conditions.append("difficulty_label = ?")
+            params.append(filters['difficulty'])
+            
+        if 'exclude_ids' in filters and filters['exclude_ids']:
+            if isinstance(filters['exclude_ids'], list) and filters['exclude_ids']:
+                placeholders = ','.join(['?' for _ in filters['exclude_ids']])
+                conditions.append(f"question_id NOT IN ({placeholders})")
+                params.extend(filters['exclude_ids'])
+        
+        return conditions, params
+    
+    def filter_questions(self, filters: Dict[str, Any], limit: Optional[int] = None, offset: Optional[int] = None) -> List[Question]:
+        """
+        Filter questions based on criteria with pagination support.
+        
+        Args:
+            filters: Dictionary of filter criteria
+            limit: Maximum number of questions to return
+            offset: Number of questions to skip
+        
+        Returns:
+            A list of Questions matching the criteria with pagination applied
         """
         try:
-            conditions = []
-            params = []
-            
-            # Build query conditions based on filters
-            if 'text_search' in filters and filters['text_search']:
-                conditions.append("question_text LIKE ?")
-                params.append(f"%{filters['text_search']}%")
-            
-            if 'subject_tags' in filters and filters['subject_tags']:
-                tags = filters['subject_tags']
-                if isinstance(tags, list):
-                    for tag in tags:
-                        conditions.append("subject_tags LIKE ?")
-                        params.append(f"%{tag}%")
-                else:
-                    conditions.append("subject_tags LIKE ?")
-                    params.append(f"%{tags}%")
-            
-            if 'difficulty' in filters and filters['difficulty']:
-                conditions.append("difficulty_label = ?")
-                params.append(filters['difficulty'])
+            conditions, params = self._build_filter_conditions(filters)
             
             # Create the query string
             query = "SELECT * FROM questions"
@@ -201,6 +254,12 @@ class QuestionRepository:
                 query += " WHERE " + " AND ".join(conditions)
             
             query += " ORDER BY question_id"
+            
+            # Add pagination if specified
+            if limit is not None:
+                query += f" LIMIT {limit}"
+                if offset is not None:
+                    query += f" OFFSET {offset}"
             
             # Execute the query
             result = self.db_manager.execute_query(query, tuple(params))
@@ -213,6 +272,36 @@ class QuestionRepository:
         except Exception as e:
             self.logger.error(f"Error filtering questions: {str(e)}")
             return []
+    
+    def count_filtered_questions(self, filters: Dict[str, Any]) -> int:
+        """
+        Count questions matching the filter criteria.
+        
+        Args:
+            filters: Dictionary of filter criteria
+        
+        Returns:
+            Count of questions matching the criteria
+        """
+        try:
+            conditions, params = self._build_filter_conditions(filters)
+            
+            # Create the count query
+            query = "SELECT COUNT(*) as count FROM questions"
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+            
+            # Execute the query
+            result = self.db_manager.execute_query(query, tuple(params))
+            
+            if not result:
+                return 0
+                
+            return result[0]['count']
+            
+        except Exception as e:
+            self.logger.error(f"Error counting filtered questions: {str(e)}")
+            return 0
 
 
 class WorksheetRepository:
