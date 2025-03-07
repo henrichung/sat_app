@@ -11,8 +11,10 @@ from PyQt6.QtWidgets import (
     QPushButton, QFileDialog, QGridLayout, QMessageBox, QGroupBox, QRadioButton,
     QButtonGroup, QFormLayout, QScrollArea, QToolButton, QDialog, QSplitter
 )
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QPixmap, QIcon, QImage, QTextCursor
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtGui import QPixmap, QIcon, QImage, QTextCursor, QColor
+
+from ..ui.animations import ValidationAnimator, ProgressAnimator, NotificationManager, AnimationSpeed
 
 from ..business.question_manager import QuestionManager
 from ..dal.models import Question
@@ -46,6 +48,15 @@ class QuestionEditor(QWidget):
         self.answer_image_paths: Dict[str, Optional[str]] = {
             'A': None, 'B': None, 'C': None, 'D': None
         }
+        
+        # Initialize animation utilities
+        self.validation_animator = ValidationAnimator()
+        self.progress_animator = ProgressAnimator()
+        self.notification_manager = NotificationManager()
+        
+        # State tracking
+        self.is_saving = False
+        self.button_original_state = None
         
         # Create layout
         main_layout = QVBoxLayout(self)
@@ -330,7 +341,11 @@ class QuestionEditor(QWidget):
             QMessageBox.critical(self, "Error", f"Error loading question: {str(e)}")
     
     def save_question(self):
-        """Save or update the current question."""
+        """Save or update the current question with animation feedback."""
+        # Prevent multiple save attempts
+        if self.is_saving:
+            return
+            
         try:
             # Get the correct answer
             correct_answer = None
@@ -343,19 +358,64 @@ class QuestionEditor(QWidget):
             elif self.correct_d.isChecked():
                 correct_answer = 'D'
             
-            # Validate basic requirements
+            # Validate basic requirements with animated feedback
             if not self.question_text.toPlainText().strip():
-                QMessageBox.warning(self, "Validation Error", "Question text is required")
+                self.validation_animator.highlight_invalid_field(
+                    self.question_text, 
+                    "Question text is required", 
+                    self
+                )
                 return
             
-            if not self.answer_a.toPlainText().strip() or not self.answer_b.toPlainText().strip() \
-               or not self.answer_c.toPlainText().strip() or not self.answer_d.toPlainText().strip():
-                QMessageBox.warning(self, "Validation Error", "All answer options are required")
+            # Validate answer options with animated feedback
+            has_validation_error = False
+            
+            if not self.answer_a.toPlainText().strip():
+                self.validation_animator.highlight_invalid_field(
+                    self.answer_a, 
+                    "Answer A is required", 
+                    self
+                )
+                has_validation_error = True
+                
+            if not self.answer_b.toPlainText().strip():
+                self.validation_animator.highlight_invalid_field(
+                    self.answer_b, 
+                    "Answer B is required", 
+                    self
+                )
+                has_validation_error = True
+                
+            if not self.answer_c.toPlainText().strip():
+                self.validation_animator.highlight_invalid_field(
+                    self.answer_c, 
+                    "Answer C is required", 
+                    self
+                )
+                has_validation_error = True
+                
+            if not self.answer_d.toPlainText().strip():
+                self.validation_animator.highlight_invalid_field(
+                    self.answer_d, 
+                    "Answer D is required", 
+                    self
+                )
+                has_validation_error = True
+            
+            if has_validation_error:
                 return
             
             if not correct_answer:
+                # This shouldn't happen since radio buttons have default selection
                 QMessageBox.warning(self, "Validation Error", "Please select the correct answer")
                 return
+            
+            # Set button to loading state
+            self.is_saving = True
+            save_text = "Saving..." if self.current_question_id is None else "Updating..."
+            self.button_original_state = self.progress_animator.create_button_loading_state(
+                self.save_button, save_text
+            )
             
             # Prepare question data
             question_data = {
@@ -375,32 +435,110 @@ class QuestionEditor(QWidget):
                 'difficulty_label': self.difficulty.currentText()
             }
             
+            # Use a timer to simulate processing time and show the animation
+            # In real app this would be actual processing time, but we add 
+            # a slight delay to ensure the animation is visible
+            QTimer.singleShot(800, lambda: self._perform_save(question_data))
+            
+        except ValueError as ve:
+            self.logger.error(f"Validation error: {str(ve)}")
+            
+            # Reset button state
+            if self.button_original_state:
+                self.progress_animator.restore_button_state(self.save_button, self.button_original_state)
+                self.button_original_state = None
+            self.is_saving = False
+            
+            QMessageBox.warning(self, "Validation Error", str(ve))
+            
+        except Exception as e:
+            self.logger.error(f"Error saving question: {str(e)}")
+            
+            # Reset button state
+            if self.button_original_state:
+                self.progress_animator.restore_button_state(self.save_button, self.button_original_state)
+                self.button_original_state = None
+            self.is_saving = False
+            
+            QMessageBox.critical(self, "Error", f"Error saving question: {str(e)}")
+    
+    def _perform_save(self, question_data):
+        """
+        Perform the actual save operation after validation and animation.
+        
+        Args:
+            question_data: The question data to save
+        """
+        try:
             # Save or update question
             if self.current_question_id is None:
                 # Create new question
                 question_id = self.question_manager.create_question(question_data)
                 if question_id:
-                    QMessageBox.information(self, "Success", f"Question created with ID: {question_id}")
+                    # Show success animation instead of message box
+                    if self.parent():
+                        self.notification_manager.show_toast(
+                            f"Question created successfully (ID: {question_id})",
+                            self.parent(),
+                            duration=3000,
+                            position="bottom"
+                        )
+                    
+                    # Reset form with subtle animation
                     self.question_saved.emit(question_id)
-                    self.clear_form()
+                    
+                    # Briefly highlight form before clearing
+                    self._animate_save_success()
+                    QTimer.singleShot(800, self.clear_form)
                 else:
                     QMessageBox.critical(self, "Error", "Failed to create question")
             else:
                 # Update existing question
                 success = self.question_manager.update_question(self.current_question_id, question_data)
                 if success:
-                    QMessageBox.information(self, "Success", f"Question updated successfully")
+                    # Show success animation instead of message box
+                    if self.parent():
+                        self.notification_manager.show_toast(
+                            f"Question updated successfully",
+                            self.parent(),
+                            duration=3000,
+                            position="bottom"
+                        )
+                    
+                    # Reset form with subtle animation
                     self.question_saved.emit(self.current_question_id)
-                    self.clear_form()
+                    
+                    # Briefly highlight form before clearing
+                    self._animate_save_success()
+                    QTimer.singleShot(800, self.clear_form)
                 else:
                     QMessageBox.critical(self, "Error", "Failed to update question")
         
-        except ValueError as ve:
-            self.logger.error(f"Validation error: {str(ve)}")
-            QMessageBox.warning(self, "Validation Error", str(ve))
         except Exception as e:
-            self.logger.error(f"Error saving question: {str(e)}")
+            self.logger.error(f"Error in _perform_save: {str(e)}")
             QMessageBox.critical(self, "Error", f"Error saving question: {str(e)}")
+        finally:
+            # Reset button state
+            if self.button_original_state:
+                self.progress_animator.restore_button_state(self.save_button, self.button_original_state)
+                self.button_original_state = None
+            self.is_saving = False
+    
+    def _animate_save_success(self):
+        """Play a subtle success animation on the save button."""
+        original_style = self.save_button.styleSheet()
+        
+        # Set success style
+        self.save_button.setStyleSheet(original_style + """
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: 1px solid #388E3C;
+            }
+        """)
+        
+        # Reset after animation duration
+        QTimer.singleShot(800, lambda: self.save_button.setStyleSheet(original_style))
     
     def _select_question_image(self):
         """Open file dialog to select a question image."""

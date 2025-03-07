@@ -15,12 +15,13 @@ from PyQt6.QtWidgets import (
     QComboBox, QLineEdit, QScrollArea, QFormLayout, QGridLayout,
     QSplitter, QSizePolicy
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer
+from PyQt6.QtGui import QIcon, QColor
 
 from sat_app.business.import_export_manager import ImportExportManager
 from sat_app.business.question_manager import QuestionManager
 from sat_app.utils.logger import get_logger
+from sat_app.ui.animations import ProgressAnimator, NotificationManager, AnimationSpeed
 
 
 class ImportExportView(QWidget):
@@ -50,6 +51,16 @@ class ImportExportView(QWidget):
         self.logger = get_logger(__name__)
         self.import_export_manager = import_export_manager
         self.question_manager = question_manager
+        
+        # Initialize animation utilities
+        self.progress_animator = ProgressAnimator()
+        self.notification_manager = NotificationManager()
+        
+        # State tracking
+        self.import_button_state = None
+        self.export_button_state = None
+        self.is_importing = False
+        self.is_exporting = False
         
         self._setup_ui()
     
@@ -260,9 +271,20 @@ class ImportExportView(QWidget):
         self.difficulty_filter.setEnabled(filter_enabled)
     
     def _import_questions(self):
-        """Import questions from the selected file."""
+        """Import questions from the selected file with animated feedback."""
+        if self.is_importing:
+            return
+            
         import_path = self.import_path_edit.text()
         if not import_path or not os.path.exists(import_path):
+            # Shake the path field to indicate error
+            self.progress_animator.create_shake_animation(
+                self.import_path_edit, 
+                distance=5, 
+                duration=AnimationSpeed.FAST.value,
+                auto_start=True
+            )
+            
             QMessageBox.warning(
                 self,
                 "Invalid File",
@@ -270,32 +292,140 @@ class ImportExportView(QWidget):
             )
             return
         
-        # Update UI for import in progress
-        self.import_status_label.setText("Importing questions...")
-        self.import_progress_bar.setValue(25)
-        self.import_button.setEnabled(False)
+        # Set importing state
+        self.is_importing = True
         
-        # Import questions
-        import_images = self.import_images_check.isChecked()
-        success, message, stats = self.import_export_manager.import_questions(
-            import_path, import_images
+        # Update UI for import in progress with animations
+        self.import_status_label.setText("Preparing to import questions...")
+        
+        # Reset and animate progress bar
+        self.import_progress_bar.setValue(0)
+        pulsating_progress = self.progress_animator.create_pulsating_progress_bar(
+            self.import_progress_bar, 0, 100
         )
         
-        # Update progress
-        self.import_progress_bar.setValue(100)
+        # Set button to loading state
+        self.import_button_state = self.progress_animator.create_button_loading_state(
+            self.import_button, "Importing..."
+        )
         
-        # Update status
-        if success:
-            self.import_status_label.setText(message)
-            self._show_import_results(stats)
-        else:
-            self.import_status_label.setText(f"Error: {message}")
+        # Process the import in a delayed manner to allow UI to update
+        QTimer.singleShot(300, lambda: self._perform_import(import_path))
+    
+    def _perform_import(self, import_path):
+        """
+        Perform the actual import operation with animated progress updates.
+        
+        Args:
+            import_path: Path to the file to import
+        """
+        try:
+            # Update status with animation
+            self.import_status_label.setText("Reading file...")
+            QTimer.singleShot(500, lambda: self.import_status_label.setText("Parsing JSON data..."))
+            
+            # Get import options
+            import_images = self.import_images_check.isChecked()
+            
+            # Import questions
+            success, message, stats = self.import_export_manager.import_questions(
+                import_path, import_images
+            )
+            
+            # Animate the progress bar to completion
+            self.import_progress_bar.setRange(0, 100)  # Ensure it's not in pulsating mode
+            self.progress_animator.animate_progress_bar(
+                self.import_progress_bar, 
+                self.import_progress_bar.value(), 
+                100, 
+                duration=800
+            )
+            
+            # Update status
+            if success:
+                self.import_status_label.setText(message)
+                
+                # Show success animation
+                QTimer.singleShot(800, lambda: self._show_import_success(message))
+                
+                # Show import results with a slight delay
+                QTimer.singleShot(1000, lambda: self._show_import_results(stats))
+            else:
+                self.import_status_label.setText(f"Error: {message}")
+                
+                # Show error animation
+                QTimer.singleShot(800, lambda: self._show_import_error(message))
+            
+            # Reset button state after everything is complete
+            QTimer.singleShot(1200, self._reset_import_state)
+            
+            # Emit completion signal with slight delay
+            QTimer.singleShot(1200, lambda: self.import_completed.emit(success, message, stats))
+            
+        except Exception as e:
+            self.logger.error(f"Error during import: {str(e)}", exc_info=True)
+            self.import_status_label.setText(f"Error: {str(e)}")
+            
+            # Show error animation
+            self._show_import_error(str(e))
+            
+            # Reset state
+            self._reset_import_state()
+            
+            # Emit completion signal
+            self.import_completed.emit(False, str(e), {})
+    
+    def _show_import_success(self, message):
+        """
+        Show success animation and message for import.
+        
+        Args:
+            message: Success message to display
+        """
+        # Flash the status label with success color
+        original_style = self.import_status_label.styleSheet()
+        self.import_status_label.setStyleSheet(
+            "color: #4CAF50; font-weight: bold;"
+        )
+        QTimer.singleShot(2000, lambda: self.import_status_label.setStyleSheet(original_style))
+        
+        # Show a toast notification if we have a parent
+        if self.parent():
+            self.notification_manager.show_toast(
+                "Import completed successfully!",
+                self.parent(),
+                duration=3000,
+                position="bottom"
+            )
+    
+    def _show_import_error(self, message):
+        """
+        Show error animation and message for import.
+        
+        Args:
+            message: Error message to display
+        """
+        # Flash the status label with error color
+        original_style = self.import_status_label.styleSheet()
+        self.import_status_label.setStyleSheet(
+            "color: #F44336; font-weight: bold;"
+        )
+        
+        # Reset styling after delay
+        QTimer.singleShot(2000, lambda: self.import_status_label.setStyleSheet(original_style))
+    
+    def _reset_import_state(self):
+        """Reset the import UI state after operation completes."""
+        # Reset button state
+        if self.import_button_state:
+            self.progress_animator.restore_button_state(self.import_button, self.import_button_state)
+            self.import_button_state = None
+        
+        # Reset state tracking
+        self.is_importing = False
         
         # Re-enable import button
         self.import_button.setEnabled(True)
-        
-        # Emit completion signal
-        self.import_completed.emit(success, message, stats)
     
     def _show_import_results(self, stats: Dict[str, int]):
         """
@@ -315,9 +445,20 @@ class ImportExportView(QWidget):
             self.import_results_table.setItem(i, 1, QTableWidgetItem(str(value)))
     
     def _export_questions(self):
-        """Export questions to the selected file."""
+        """Export questions to the selected file with animated feedback."""
+        if self.is_exporting:
+            return
+            
         export_path = self.export_path_edit.text()
         if not export_path:
+            # Shake the path field to indicate error
+            self.progress_animator.create_shake_animation(
+                self.export_path_edit, 
+                distance=5, 
+                duration=AnimationSpeed.FAST.value,
+                auto_start=True
+            )
+            
             QMessageBox.warning(
                 self,
                 "Invalid File",
@@ -325,16 +466,39 @@ class ImportExportView(QWidget):
             )
             return
         
-        # Update UI for export in progress
-        self.export_status_label.setText("Exporting questions...")
-        self.export_button.setEnabled(False)
+        # Set exporting state
+        self.is_exporting = True
         
-        # Determine export mode
-        export_all = self.export_all_radio.isChecked()
-        include_images = self.export_images_check.isChecked()
+        # Update UI for export in progress with animations
+        self.export_status_label.setText("Preparing to export questions...")
         
+        # Set button to loading state
+        self.export_button_state = self.progress_animator.create_button_loading_state(
+            self.export_button, "Exporting..."
+        )
+        
+        # Process the export in a delayed manner to allow UI to update
+        QTimer.singleShot(300, lambda: self._perform_export(export_path))
+    
+    def _perform_export(self, export_path):
+        """
+        Perform the actual export operation with animated status updates.
+        
+        Args:
+            export_path: Path to the file to export
+        """
         try:
+            # Update status with animation
+            self.export_status_label.setText("Gathering questions...")
+            
+            # Determine export mode
+            export_all = self.export_all_radio.isChecked()
+            include_images = self.export_images_check.isChecked()
+            
+            # Process with animation stages
             if export_all:
+                QTimer.singleShot(500, lambda: self.export_status_label.setText("Preparing all questions for export..."))
+                
                 # Export all questions
                 success, message = self.import_export_manager.export_all_questions(
                     export_path, include_images
@@ -353,44 +517,113 @@ class ImportExportView(QWidget):
                 if difficulty != "Any":
                     filters["difficulty_label"] = difficulty
                 
+                QTimer.singleShot(500, lambda: self.export_status_label.setText("Filtering questions..."))
+                QTimer.singleShot(1000, lambda: self.export_status_label.setText("Preparing filtered questions for export..."))
+                
                 success, message = self.import_export_manager.export_filtered_questions(
                     filters, export_path, include_images
                 )
             
-            # Update status
-            self.export_status_label.setText(message)
+            # Simulate processing time for better user experience
+            QTimer.singleShot(1200, lambda: self._show_export_result(success, message))
             
-            # Show success or error message
-            if success:
-                QMessageBox.information(
-                    self,
-                    "Export Complete",
-                    f"Questions have been exported successfully.\n{message}"
-                )
-            else:
-                QMessageBox.warning(
-                    self,
-                    "Export Error",
-                    f"Error during export: {message}"
-                )
-        
         except Exception as e:
             error_msg = f"Error during export: {str(e)}"
             self.logger.error(error_msg, exc_info=True)
-            self.export_status_label.setText(error_msg)
             
-            QMessageBox.critical(
-                self,
-                "Export Error",
-                error_msg
+            # Show error with animation
+            QTimer.singleShot(800, lambda: self._show_export_error(str(e)))
+            
+            # Reset state
+            QTimer.singleShot(1200, self._reset_export_state)
+            
+            # Emit completion signal
+            QTimer.singleShot(1200, lambda: self.export_completed.emit(False, str(e)))
+    
+    def _show_export_result(self, success, message):
+        """
+        Show the export result with animation.
+        
+        Args:
+            success: Whether the export was successful
+            message: Result message
+        """
+        # Update status
+        self.export_status_label.setText(message)
+        
+        if success:
+            # Show success animation
+            self._show_export_success(message)
+        else:
+            # Show error animation
+            self._show_export_error(message)
+        
+        # Reset state after showing result
+        QTimer.singleShot(2000, self._reset_export_state)
+        
+        # Emit completion signal
+        self.export_completed.emit(success, message)
+    
+    def _show_export_success(self, message):
+        """
+        Show success animation and message for export.
+        
+        Args:
+            message: Success message to display
+        """
+        # Flash the status label with success color
+        original_style = self.export_status_label.styleSheet()
+        self.export_status_label.setStyleSheet(
+            "color: #4CAF50; font-weight: bold;"
+        )
+        
+        # Reset styling after delay
+        QTimer.singleShot(2000, lambda: self.export_status_label.setStyleSheet(original_style))
+        
+        # Show a toast notification if we have a parent
+        if self.parent():
+            self.notification_manager.show_toast(
+                "Export completed successfully!",
+                self.parent(),
+                duration=3000,
+                position="bottom"
             )
+    
+    def _show_export_error(self, message):
+        """
+        Show error animation and message for export.
+        
+        Args:
+            message: Error message to display
+        """
+        # Flash the status label with error color
+        original_style = self.export_status_label.styleSheet()
+        self.export_status_label.setStyleSheet(
+            "color: #F44336; font-weight: bold;"
+        )
+        
+        # Reset styling after delay
+        QTimer.singleShot(2000, lambda: self.export_status_label.setStyleSheet(original_style))
+        
+        # Show error message
+        QMessageBox.critical(
+            self,
+            "Export Error",
+            f"Error during export: {message}"
+        )
+    
+    def _reset_export_state(self):
+        """Reset the export UI state after operation completes."""
+        # Reset button state
+        if self.export_button_state:
+            self.progress_animator.restore_button_state(self.export_button, self.export_button_state)
+            self.export_button_state = None
+        
+        # Reset state tracking
+        self.is_exporting = False
         
         # Re-enable export button
         self.export_button.setEnabled(True)
-        
-        # Emit completion signal
-        self.export_completed.emit(success if 'success' in locals() else False, 
-                                   message if 'message' in locals() else str(e))
     
     def populate_subject_tags(self):
         """Populate the subject tags combo box with available tags."""

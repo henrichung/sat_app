@@ -8,8 +8,10 @@ from PyQt6.QtWidgets import (
     QLabel, QStatusBar, QMessageBox, QSplitter, QCheckBox, QPushButton,
     QLineEdit, QTextEdit, QGroupBox, QFormLayout, QSizePolicy
 )
-from PyQt6.QtCore import Qt, QSize, QSettings, QPoint, QRect
-from PyQt6.QtGui import QIcon, QScreen
+from PyQt6.QtCore import Qt, QSize, QSettings, QPoint, QRect, QTimer
+from PyQt6.QtGui import QIcon, QScreen, QColor
+
+from ..ui.animations import NotificationManager, AnimationSpeed
 
 from sat_app.config.config_manager import ConfigManager
 from sat_app.dal.database_manager import DatabaseManager
@@ -93,6 +95,9 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Ready")
+        
+        # Initialize notification manager with status bar
+        self.notification_manager = NotificationManager(self.status_bar)
         
         # Apply initial theme based on settings
         self._apply_current_theme()
@@ -297,7 +302,22 @@ class MainWindow(QMainWindow):
         Args:
             question_id: ID of the saved question
         """
-        self.status_bar.showMessage(f"Question {question_id} saved successfully")
+        # Use animated status message
+        self.notification_manager.pulse_status_message(
+            f"Question {question_id} saved successfully",
+            pulse_count=2,
+            pulse_duration=250
+        )
+        
+        # Show a toast notification
+        self.notification_manager.show_toast(
+            f"Question {question_id} saved successfully", 
+            self,
+            duration=3000,
+            position="bottom"
+        )
+        
+        # Refresh the question list
         self.question_browser.refresh_questions()
     
     def _question_deleted(self, question_id: int):
@@ -307,7 +327,20 @@ class MainWindow(QMainWindow):
         Args:
             question_id: ID of the deleted question
         """
-        self.status_bar.showMessage(f"Question {question_id} deleted successfully")
+        # Use animated status message
+        self.notification_manager.pulse_status_message(
+            f"Question {question_id} deleted successfully",
+            pulse_count=2,
+            pulse_duration=250
+        )
+        
+        # Show a toast notification with different styling for deletion
+        self.notification_manager.show_toast(
+            f"Question {question_id} deleted", 
+            self,
+            duration=3000,
+            position="bottom"
+        )
     
     def _toggle_worksheet_mode(self, enabled: bool):
         """
