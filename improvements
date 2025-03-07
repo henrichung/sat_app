@@ -1,0 +1,27 @@
+ Based on reviewing the codebase, here are high-impact UI improvements for the SAT app:
+
+  1. Modern UI theme implementation - Implement the TODO in MainWindow._settings_updated()       
+  with light/dark themes using PyQt6's stylesheet system. This would significantly improve       
+  visual appeal and reduce eye strain during extended use.
+  2. Responsive layout design - Replace fixed window size (1200x800) with dynamic scaling        
+  based on screen resolution. Implement QSplitter handles with minimum sizes to ensure proper    
+   component visibility on various displays.
+  3. Visual hierarchy improvements - Add consistent color coding for question difficulty,        
+  status indicators, and action buttons. Currently, the UI lacks visual cues to guide users      
+  through workflows.
+  4. Interactive feedback animations - Add subtle animations for state changes (saving,
+  loading, validation) to provide users with better visual feedback during operations.
+  5. Question preview cards - Implement card-based question previews in the browser with
+  hover effects showing key metadata, replacing the current table view for a more engaging       
+  experience.
+  6. Consolidated action buttons - Group related actions into toolbar menus with icons for       
+  common operations, reducing visual clutter while maintaining functionality.
+  7. Improved form validation - Add real-time validation feedback in question editor fields      
+  with clear visual indicators for required fields and formatting errors.
+  8. Student response visualization enhancements - Replace basic radio buttons in
+  ResponseGrid with visually distinct, clickable answer indicators that clearly show
+  selection state.
+  9. Worksheet generation wizard - Transform the worksheet generation process into a guided      
+  step-by-step wizard with visual previews of the worksheet layout.
+  10. Application status feedback - Replace the basic status bar with a more prominent
+  notification system for success/error messages that fade after user acknowledgment.

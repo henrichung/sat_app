@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox,
     QProgressBar, QMessageBox, QGroupBox, QRadioButton, QButtonGroup,
     QComboBox, QLineEdit, QScrollArea, QFormLayout, QGridLayout,
-    QSplitter
+    QSplitter, QSizePolicy
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QIcon

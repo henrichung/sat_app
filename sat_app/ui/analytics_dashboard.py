@@ -347,10 +347,12 @@ class StudentPerformanceTab(QWidget):
         
         # Create a splitter for the main content
         self.splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter.setChildrenCollapsible(False)  # Prevent children from being collapsed completely
         self.layout.addWidget(self.splitter)
         
         # Create summary box
         self.summary_box = QGroupBox("Performance Summary")
+        self.summary_box.setMinimumHeight(120)  # Ensure the summary is always visible
         self.summary_layout = QFormLayout(self.summary_box)
         
         self.total_questions_label = QLabel("0")

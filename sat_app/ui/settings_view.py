@@ -104,6 +104,11 @@ class SettingsView(QWidget):
         
         form_layout.addRow("Font Size:", self.font_size_spin)
         
+        # Window size settings - Remember and restore window size
+        self.remember_window_size = QCheckBox("Remember window size and position")
+        self.remember_window_size.setChecked(ui_settings.get("remember_window_size", False))
+        form_layout.addRow("", self.remember_window_size)
+        
         # Add form to layout
         ui_layout.addLayout(form_layout)
         
@@ -256,9 +261,11 @@ class SettingsView(QWidget):
             # UI settings
             theme = self.theme_combo.currentText().lower()
             font_size = self.font_size_spin.value()
+            remember_window_size = self.remember_window_size.isChecked()
             
             self.settings_manager.update_setting("ui", "theme", theme)
             self.settings_manager.update_setting("ui", "font_size", font_size)
+            self.settings_manager.update_setting("ui", "remember_window_size", remember_window_size)
             
             # Database settings
             db_path = self.db_path_edit.text()

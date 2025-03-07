@@ -6,10 +6,10 @@ import logging
 from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QVBoxLayout, QHBoxLayout, QWidget, 
     QLabel, QStatusBar, QMessageBox, QSplitter, QCheckBox, QPushButton,
-    QLineEdit, QTextEdit, QGroupBox, QFormLayout
+    QLineEdit, QTextEdit, QGroupBox, QFormLayout, QSizePolicy
 )
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt, QSize, QSettings, QPoint, QRect
+from PyQt6.QtGui import QIcon, QScreen
 
 from sat_app.config.config_manager import ConfigManager
 from sat_app.dal.database_manager import DatabaseManager
@@ -21,6 +21,7 @@ from sat_app.ui.analytics_dashboard import AnalyticsDashboard
 from sat_app.ui.import_export_view import ImportExportView
 from sat_app.ui.settings_view import SettingsView
 from sat_app.ui.student_response_view import StudentResponseView
+from sat_app.ui.theme_manager import ThemeManager
 from sat_app.dal.models import Question, Worksheet
 from sat_app.rendering.pdf_generator import PDFGenerator
 
@@ -62,12 +63,21 @@ class MainWindow(QMainWindow):
         # Connect PDF generator to worksheet generator for updating worksheet records
         self.pdf_generator.worksheet_generator = self.worksheet_generator
         
+        # Initialize theme manager
+        self.theme_manager = ThemeManager()
+        
         self.setWindowTitle("SAT Question Bank")
-        self.setGeometry(100, 100, 1200, 800)
+        
+        # Apply the window size/position based on settings or use default
+        self._apply_window_geometry()
         
         # Create central widget and layout
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
+        
+        # Set the size policy to allow the window to resize with the screen
+        size_policy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.central_widget.setSizePolicy(size_policy)
         
         self.main_layout = QVBoxLayout(self.central_widget)
         self.main_layout.setContentsMargins(10, 10, 10, 10)
@@ -83,6 +93,9 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Ready")
+        
+        # Apply initial theme based on settings
+        self._apply_current_theme()
         
         self.logger.info("Main window initialized")
     
@@ -213,8 +226,12 @@ class MainWindow(QMainWindow):
         main_splitter.addWidget(left_panel)
         main_splitter.addWidget(self.right_panel)
         
-        # Set initial sizes
-        main_splitter.setSizes([500, 700])
+        # Set minimum sizes to prevent components from disappearing
+        left_panel.setMinimumWidth(300)
+        self.right_panel.setMinimumWidth(400)
+        
+        # Set initial sizes for a balanced layout (40% left, 60% right)
+        main_splitter.setSizes([400, 600])
         
         questions_layout.addWidget(main_splitter)
         
@@ -529,6 +546,65 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'analytics_dashboard'):
             self.analytics_dashboard.refresh_data()
     
+    def _apply_window_geometry(self):
+        """
+        Apply the appropriate window geometry based on settings and screen size.
+        If remember_window_size is enabled and there are saved geometry settings, use those.
+        Otherwise, calculate default size based on the current screen.
+        """
+        # Get UI settings
+        ui_settings = self.settings_manager.get_ui_settings()
+        remember_window_size = ui_settings.get("remember_window_size", False)
+        
+        # Create QSettings for storing window state
+        settings = QSettings("SATApp", "QuestionBank")
+        
+        if remember_window_size:
+            # Try to restore saved geometry if it exists
+            geometry = settings.value("mainWindowGeometry")
+            state = settings.value("mainWindowState")
+            
+            if geometry is not None:
+                self.restoreGeometry(geometry)
+                if state is not None:
+                    self.restoreState(state)
+                self.logger.info("Restored saved window geometry and state")
+                return
+        
+        # No saved geometry or not using saved settings - calculate based on screen
+        screen = self.screen()
+        screen_geometry = screen.availableGeometry()
+        
+        # Set window size to 80% of available screen space
+        width = int(screen_geometry.width() * 0.8)
+        height = int(screen_geometry.height() * 0.8)
+        
+        # Center the window
+        x = (screen_geometry.width() - width) // 2
+        y = (screen_geometry.height() - height) // 2
+        
+        # Apply the calculated geometry
+        self.setGeometry(x, y, width, height)
+        self.logger.info(f"Set window size to {width}x{height} based on screen resolution")
+        
+    def _apply_current_theme(self):
+        """
+        Apply the current theme from settings to the application.
+        """
+        # Get UI settings
+        ui_settings = self.settings_manager.get_ui_settings()
+        theme_name = ui_settings.get("theme", "light")
+        font_size = ui_settings.get("font_size", 12)
+        
+        # Apply the theme
+        success = self.theme_manager.apply_theme(theme_name, font_size)
+        if success:
+            self.logger.info(f"Applied {theme_name} theme with font size {font_size}")
+        else:
+            self.logger.error(f"Failed to apply {theme_name} theme")
+            # Fallback to light theme if theme application fails
+            self.theme_manager.apply_theme("light", 12)
+    
     def _settings_updated(self):
         """
         Handle notification that settings were updated.
@@ -540,20 +616,39 @@ class MainWindow(QMainWindow):
         # Get current UI settings
         ui_settings = self.settings_manager.get_ui_settings()
         
-        # TODO: Apply theme and font size changes to the UI when implemented
-        # This would involve updating the application style sheet based on themes
-        # and updating font sizes for components
+        # Apply theme and font size changes
+        self._apply_current_theme()
+        
+        # Apply window geometry changes if remember_window_size setting changed
+        remember_window_size = ui_settings.get("remember_window_size", False)
+        settings = QSettings("SATApp", "QuestionBank")
+        
+        # If remember_window_size was disabled, clear saved geometry
+        if not remember_window_size:
+            settings.remove("mainWindowGeometry")
+            settings.remove("mainWindowState")
+            self.logger.info("Cleared saved window geometry")
     
     def closeEvent(self, event):
         """
         Handle window close event.
         
-        Closes database connection and performs cleanup.
+        Saves window geometry if enabled, closes database connection and performs cleanup.
         
         Args:
             event: Close event
         """
         try:
+            # Save window geometry if enabled
+            ui_settings = self.settings_manager.get_ui_settings()
+            remember_window_size = ui_settings.get("remember_window_size", False)
+            
+            if remember_window_size:
+                settings = QSettings("SATApp", "QuestionBank")
+                settings.setValue("mainWindowGeometry", self.saveGeometry())
+                settings.setValue("mainWindowState", self.saveState())
+                self.logger.info("Saved window geometry and state")
+            
             # Close database connection
             if self.db_manager:
                 self.db_manager.close()

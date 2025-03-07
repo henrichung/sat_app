@@ -6,17 +6,18 @@ import os
 from typing import List, Dict, Any, Optional
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QCheckBox,
+    QTableView, QHeaderView, QComboBox, QCheckBox,
     QGroupBox, QFormLayout, QMessageBox, QMenu, QAbstractItemView,
     QDialog, QDialogButtonBox, QScrollArea
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QAction
-from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QModelIndex
+from PyQt6.QtGui import QAction, QIcon
 
 from ..business.question_manager import QuestionManager
 from ..dal.models import Question
 from ..utils.logger import get_logger
+from .models.question_table_model import QuestionTableModel
+from .delegates.question_delegates import ActionButtonDelegate, StudentHistoryDelegate, WorksheetSelectionDelegate
 
 
 class QuestionBrowser(QWidget):
@@ -146,48 +147,56 @@ class QuestionBrowser(QWidget):
         self.results_label = QLabel("Showing 0 questions")
         main_layout.addWidget(self.results_label)
         
-        # Create question table with appropriate columns (Add worksheet column if enabled)
-        # Add extra column for answered status when in student filtering mode
+        # Create model and view for questions
         self.student_mode_active = False
-        base_columns = 5  # ID, Question, Tags, Difficulty, Actions
-        selection_columns = 1 if self.enable_worksheet_selection else 0  # Worksheet selection
-        student_columns = 1  # Student answered column
         
-        column_count = base_columns + selection_columns + student_columns
+        # Initialize model
+        self.model = QuestionTableModel(self)
+        self.model.setWorksheetSelectionEnabled(self.enable_worksheet_selection)
         
-        self.question_table = QTableWidget(0, column_count)
+        # Create table view
+        self.question_table = QTableView()
+        self.question_table.setModel(self.model)
         self.question_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.question_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        
+        # Configure edit triggers - allow editing for our delegate columns only
+        # NoEditTriggers for standard columns, but we'll open persistent editors for delegate columns
         self.question_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         
-        # Dynamically set columns based on active modes
-        headers = ["ID", "Question", "Tags", "Difficulty", "Actions"]
+        # Configure column appearance
+        self.question_table.horizontalHeader().setSectionResizeMode(QuestionTableModel.ID_COLUMN, QHeaderView.ResizeMode.ResizeToContents)  # ID
+        self.question_table.horizontalHeader().setSectionResizeMode(QuestionTableModel.TEXT_COLUMN, QHeaderView.ResizeMode.Stretch)  # Question
+        self.question_table.horizontalHeader().setSectionResizeMode(QuestionTableModel.TAGS_COLUMN, QHeaderView.ResizeMode.ResizeToContents)  # Tags
+        self.question_table.horizontalHeader().setSectionResizeMode(QuestionTableModel.DIFFICULTY_COLUMN, QHeaderView.ResizeMode.ResizeToContents)  # Difficulty
+        self.question_table.horizontalHeader().setSectionResizeMode(QuestionTableModel.STUDENT_HISTORY_COLUMN, QHeaderView.ResizeMode.ResizeToContents)  # Student history
         
-        # Add student history column
-        headers.append("Student History")
-        self.student_history_column = 5
+        # Set up context menu for right-click actions
+        self.question_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.question_table.customContextMenuRequested.connect(self._show_context_menu)
         
-        # Add worksheet selection column if enabled
+        # Student history delegate
+        self.student_history_delegate = StudentHistoryDelegate(self)
+        self.student_history_delegate.worksheetClicked.connect(self._show_worksheet_details)
+        self.question_table.setItemDelegateForColumn(QuestionTableModel.STUDENT_HISTORY_COLUMN, self.student_history_delegate)
+        
+        # Worksheet selection delegate if enabled
         if self.enable_worksheet_selection:
-            headers.append("Worksheet")
-            self.worksheet_column = 6
-            
-        self.question_table.setHorizontalHeaderLabels(headers)
+            self.worksheet_delegate = WorksheetSelectionDelegate(self)
+            self.worksheet_delegate.addToWorksheet.connect(self._add_to_worksheet)
+            self.worksheet_delegate.removeFromWorksheet.connect(self._remove_from_worksheet)
+            self.question_table.setItemDelegateForColumn(QuestionTableModel.WORKSHEET_COLUMN, self.worksheet_delegate)
         
-        # Set column widths
-        self.question_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # ID
-        self.question_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Question
-        self.question_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # Tags
-        self.question_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Difficulty
-        self.question_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Actions
-        self.question_table.horizontalHeader().setSectionResizeMode(self.student_history_column, QHeaderView.ResizeMode.ResizeToContents)
-        
-        # Set worksheet column width if enabled
+        # Set column widths for worksheet column if enabled
         if self.enable_worksheet_selection:
-            self.question_table.horizontalHeader().setSectionResizeMode(self.worksheet_column, QHeaderView.ResizeMode.ResizeToContents)
+            self.question_table.horizontalHeader().setSectionResizeMode(QuestionTableModel.WORKSHEET_COLUMN, QHeaderView.ResizeMode.ResizeToContents)
+            self.worksheet_column = QuestionTableModel.WORKSHEET_COLUMN
+        
+        # For compatibility with older code
+        self.student_history_column = QuestionTableModel.STUDENT_HISTORY_COLUMN
         
         # Connect double-click to view question
-        self.question_table.itemDoubleClicked.connect(self._handle_double_click)
+        self.question_table.doubleClicked.connect(self._handle_double_click)
         
         main_layout.addWidget(self.question_table, 1)
         
@@ -320,129 +329,38 @@ class QuestionBrowser(QWidget):
             QMessageBox.critical(self, "Error", f"Error loading questions: {str(e)}")
     
     def _populate_table(self):
-        """Populate the question table with current page data."""
-        # Clear existing rows
-        self.question_table.setRowCount(0)
+        """Update the model with current questions data."""
+        # Close any existing editors before updating data
+        for row in range(self.model.rowCount()):
+            self.question_table.closePersistentEditor(self.model.index(row, QuestionTableModel.STUDENT_HISTORY_COLUMN))
+            if self.enable_worksheet_selection:
+                self.question_table.closePersistentEditor(self.model.index(row, QuestionTableModel.WORKSHEET_COLUMN))
+                
+        # Update student data in delegates
+        if hasattr(self, 'student_history_delegate'):
+            self.student_history_delegate.setStudentAnsweredQuestions(self.student_answered_questions)
         
-        # Add questions for current page
-        for row, question in enumerate(self.current_questions):
-            self.question_table.insertRow(row)
+        # Update worksheet selection if enabled
+        if self.enable_worksheet_selection and hasattr(self, 'worksheet_delegate'):
+            # Convert list to dictionary for delegate
+            selected_dict = {q.question_id: True for q in self.selected_for_worksheet}
+            self.worksheet_delegate.setSelectedQuestions(selected_dict)
+            self.worksheet_delegate.setStudentAnsweredQuestions(self.student_answered_questions)
+            # Force update the delegate's data
+            self.model.setSelectedForWorksheet(self.selected_for_worksheet)
             
-            # ID
-            id_item = QTableWidgetItem(str(question.question_id))
-            self.question_table.setItem(row, 0, id_item)
-            
-            # Question text (truncated if needed)
-            question_text = question.question_text
-            if len(question_text) > 100:
-                question_text = question_text[:97] + "..."
-            text_item = QTableWidgetItem(question_text)
-            self.question_table.setItem(row, 1, text_item)
-            
-            # Tags
-            tags_str = ", ".join(question.subject_tags) if question.subject_tags else ""
-            tags_item = QTableWidgetItem(tags_str)
-            self.question_table.setItem(row, 2, tags_item)
-            
-            # Difficulty
-            difficulty_item = QTableWidgetItem(question.difficulty_label)
-            self.question_table.setItem(row, 3, difficulty_item)
-            
-            # Actions
-            actions_widget = QWidget()
-            actions_layout = QHBoxLayout(actions_widget)
-            actions_layout.setContentsMargins(2, 2, 2, 2)
-            actions_layout.setSpacing(2)
-            
-            view_button = QPushButton("View")
-            view_button.setProperty("question_id", question.question_id)
-            view_button.clicked.connect(lambda checked, qid=question.question_id: self.view_question.emit(qid))
-            actions_layout.addWidget(view_button)
-            
-            edit_button = QPushButton("Edit")
-            edit_button.setProperty("question_id", question.question_id)
-            edit_button.clicked.connect(lambda checked, qid=question.question_id: self.edit_question.emit(qid))
-            actions_layout.addWidget(edit_button)
-            
-            delete_button = QPushButton("Delete")
-            delete_button.setProperty("question_id", question.question_id)
-            delete_button.clicked.connect(lambda checked, qid=question.question_id: self._delete_question(qid))
-            actions_layout.addWidget(delete_button)
-            
-            self.question_table.setCellWidget(row, 4, actions_widget)
-            
-            # Student history column (column 5)
-            if self.current_student_id:
-                # Create a widget to show student's history with this question
-                history_widget = QWidget()
-                history_layout = QHBoxLayout(history_widget)
-                history_layout.setContentsMargins(2, 2, 2, 2)
-                
-                question_id = question.question_id
-                
-                if question_id in self.student_answered_questions:
-                    # Question has been answered by this student
-                    worksheet_info = self.student_answered_questions[question_id]
-                    if isinstance(worksheet_info, list) and len(worksheet_info) == 2:
-                        worksheet_id, worksheet_title = worksheet_info
-                        
-                        # Display button showing which worksheet this was in
-                        history_label = QPushButton(f"In WS #{worksheet_id}")
-                        history_label.setToolTip(f"This question appeared in worksheet: {worksheet_title}")
-                        history_label.setStyleSheet("background-color: #FFD580;")  # Light orange color
-                        history_label.setProperty("worksheet_id", worksheet_id)
-                        history_label.clicked.connect(lambda checked, ws_id=worksheet_id: self._show_worksheet_details(ws_id))
-                        
-                        history_layout.addWidget(history_label)
-                    else:
-                        history_label = QLabel("✓ Answered")
-                        history_label.setStyleSheet("color: green; font-weight: bold;")
-                        history_layout.addWidget(history_label)
-                else:
-                    # Question has not been answered by this student
-                    history_label = QLabel("Not seen")
-                    history_layout.addWidget(history_label)
-                
-                self.question_table.setCellWidget(row, self.student_history_column, history_widget)
-            else:
-                # No student selected, just show empty cell
-                self.question_table.setItem(row, self.student_history_column, QTableWidgetItem(""))
-            
-            # Add worksheet selection button if enabled
-            if self.enable_worksheet_selection and self.worksheet_column is not None:
-                worksheet_col = self.worksheet_column
-                worksheet_widget = QWidget()
-                worksheet_layout = QHBoxLayout(worksheet_widget)
-                worksheet_layout.setContentsMargins(2, 2, 2, 2)
-                
-                # Check if question is already selected for worksheet
-                is_selected = any(q.question_id == question.question_id for q in self.selected_for_worksheet)
-                
-                # Check if this question has been answered by the current student
-                already_answered = (self.current_student_id and 
-                                   question.question_id in self.student_answered_questions and 
-                                   self.show_answered_questions)
-                
-                # If already answered by this student, disable adding to worksheet
-                if already_answered:
-                    add_button = QPushButton("Add")
-                    add_button.setEnabled(False)
-                    add_button.setToolTip("This question has already been answered by this student")
-                    worksheet_layout.addWidget(add_button)
-                elif is_selected:
-                    remove_button = QPushButton("Remove")
-                    remove_button.setProperty("question_id", question.question_id)
-                    remove_button.clicked.connect(lambda checked, q=question: self._remove_from_worksheet(q))
-                    worksheet_layout.addWidget(remove_button)
-                else:
-                    add_button = QPushButton("Add")
-                    add_button.setProperty("question_id", question.question_id)
-                    add_button.clicked.connect(lambda checked, q=question: self._add_to_worksheet(q))
-                    worksheet_layout.addWidget(add_button)
-                
-                self.question_table.setCellWidget(row, worksheet_col, worksheet_widget)
+        # Update model with current questions
+        self.model.setQuestions(self.current_questions)
+        self.model.setStudentAnsweredQuestions(self.student_answered_questions)
+        self.model.setSelectedForWorksheet(self.selected_for_worksheet)
         
-        self.logger.debug(f"Populated table with {len(self.current_questions)} questions")
+        # Open persistent editors for custom delegate columns after model update is complete
+        for row in range(self.model.rowCount()):
+            self.question_table.openPersistentEditor(self.model.index(row, QuestionTableModel.STUDENT_HISTORY_COLUMN))
+            if self.enable_worksheet_selection:
+                self.question_table.openPersistentEditor(self.model.index(row, QuestionTableModel.WORKSHEET_COLUMN))
+        
+        self.logger.debug(f"Updated model with {len(self.current_questions)} questions")
     
     def apply_filters(self):
         """Apply current filters and refresh the question list."""
@@ -668,10 +586,23 @@ class QuestionBrowser(QWidget):
             self.current_page -= 1
             self.refresh_questions()
     
-    def _handle_double_click(self, item):
+    def _handle_double_click(self, index):
         """Handle double-click on a question row."""
-        row = item.row()
-        question_id = int(self.question_table.item(row, 0).text())
+        if not index.isValid():
+            return
+            
+        # Get question ID from the model - make sure we're handling clicks on any column
+        row = index.row()
+        
+        # Avoid handling clicks on special columns with editors
+        column = index.column()
+        if column in [QuestionTableModel.STUDENT_HISTORY_COLUMN, 
+                     QuestionTableModel.WORKSHEET_COLUMN]:
+            return
+            
+        # Get question ID from the ID column
+        model_index = self.model.index(row, QuestionTableModel.ID_COLUMN)
+        question_id = int(self.model.data(model_index, Qt.ItemDataRole.DisplayRole))
         self.view_question.emit(question_id)
     
     def _add_new_question(self):
@@ -691,11 +622,11 @@ class QuestionBrowser(QWidget):
                 self,
                 "Confirm Deletion",
                 f"Are you sure you want to delete question {question_id}?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
             )
             
-            if confirm == QMessageBox.Yes:
+            if confirm == QMessageBox.StandardButton.Yes:
                 success = self.question_manager.delete_question(question_id)
                 if success:
                     QMessageBox.information(self, "Success", "Question deleted successfully")
@@ -790,43 +721,42 @@ class QuestionBrowser(QWidget):
             
         self.enable_worksheet_selection = enabled
         
-        # Update the column count and headers
+        # Update model configuration
+        self.model.setWorksheetSelectionEnabled(enabled)
+        
+        # Set up or remove worksheet delegate
         if enabled:
-            # Ensure we have both student history and worksheet columns
-            if self.question_table.columnCount() < 7:
-                # We need 7 columns: ID, Question, Tags, Difficulty, Actions, Student History, Worksheet
-                self.question_table.setColumnCount(7)
-                headers = ["ID", "Question", "Tags", "Difficulty", "Actions", "Student History", "Worksheet"]
-                self.question_table.setHorizontalHeaderLabels(headers)
-                
-                # Set column indices
-                self.student_history_column = 5
-                self.worksheet_column = 6
-                
-                # Set column resize modes
-                self.question_table.horizontalHeader().setSectionResizeMode(self.student_history_column, 
-                                                                          QHeaderView.ResizeMode.ResizeToContents)
-                self.question_table.horizontalHeader().setSectionResizeMode(self.worksheet_column, 
-                                                                          QHeaderView.ResizeMode.ResizeToContents)
-                
+            # Create and configure worksheet delegate if it doesn't exist
+            if not hasattr(self, 'worksheet_delegate'):
+                self.worksheet_delegate = WorksheetSelectionDelegate(self)
+                self.worksheet_delegate.addToWorksheet.connect(self._add_to_worksheet)
+                self.worksheet_delegate.removeFromWorksheet.connect(self._remove_from_worksheet)
+            
+            # Set the delegate for the worksheet column
+            self.question_table.setItemDelegateForColumn(QuestionTableModel.WORKSHEET_COLUMN, self.worksheet_delegate)
+            
+            # Set column resize mode
+            self.question_table.horizontalHeader().setSectionResizeMode(
+                QuestionTableModel.WORKSHEET_COLUMN, 
+                QHeaderView.ResizeMode.ResizeToContents
+            )
+            
+            # Update for compatibility with older code
+            self.worksheet_column = QuestionTableModel.WORKSHEET_COLUMN
+            
             # Make worksheet selection controls visible if they exist
             if hasattr(self, 'selected_count_label'):
                 self.selected_count_label.setParent(self)
                 self.clear_worksheet_button.setParent(self)
                 self.create_worksheet_button.setParent(self)
         else:
-            # We'd keep 6 columns but hide the worksheet column
-            if self.question_table.columnCount() > 6:
-                # Remove worksheet column but keep student history
-                self.question_table.setColumnCount(6)
-                headers = ["ID", "Question", "Tags", "Difficulty", "Actions", "Student History"]
-                self.question_table.setHorizontalHeaderLabels(headers)
-                
-                # We still have student history
-                self.student_history_column = 5
-                # But no worksheet column
-                self.worksheet_column = None
-                
+            # Remove worksheet delegate
+            if hasattr(self, 'worksheet_delegate'):
+                self.question_table.setItemDelegateForColumn(QuestionTableModel.WORKSHEET_COLUMN, None)
+            
+            # Update for compatibility with older code
+            self.worksheet_column = None
+            
             # Hide worksheet selection controls if they exist
             if hasattr(self, 'selected_count_label'):
                 self.selected_count_label.setParent(None)
@@ -897,6 +827,62 @@ class QuestionBrowser(QWidget):
         
         # Refresh display
         self.refresh_questions()
+    
+    def _show_context_menu(self, position):
+        """Show context menu with actions for the selected question."""
+        # Get the row at the position clicked
+        index = self.question_table.indexAt(position)
+        if not index.isValid():
+            return
+        
+        # Get question ID from the row
+        row = index.row()
+        id_index = self.model.index(row, QuestionTableModel.ID_COLUMN)
+        question_id = int(self.model.data(id_index, Qt.ItemDataRole.DisplayRole))
+        
+        # Create menu and actions
+        menu = QMenu(self)
+        
+        view_action = QAction("View Question", self)
+        view_action.triggered.connect(lambda: self.view_question.emit(question_id))
+        
+        edit_action = QAction("Edit Question", self)
+        edit_action.triggered.connect(lambda: self.edit_question.emit(question_id))
+        
+        delete_action = QAction("Delete Question", self)
+        delete_action.triggered.connect(lambda: self._delete_question(question_id))
+        
+        # Add actions to menu
+        menu.addAction(view_action)
+        menu.addAction(edit_action)
+        menu.addSeparator()
+        menu.addAction(delete_action)
+        
+        # If worksheet selection is enabled, add those options too
+        if self.enable_worksheet_selection:
+            menu.addSeparator()
+            
+            # Get the full question object
+            question = self.model.getQuestion(row)
+            
+            # Check if already in worksheet selection
+            if any(q.question_id == question_id for q in self.selected_for_worksheet):
+                worksheet_action = QAction("Remove from Worksheet", self)
+                worksheet_action.triggered.connect(lambda: self._remove_from_worksheet(question))
+            else:
+                # Check if already answered by student
+                already_answered = question_id in self.student_answered_questions
+                if already_answered:
+                    worksheet_action = QAction("Already Answered by Student", self)
+                    worksheet_action.setEnabled(False)
+                else:
+                    worksheet_action = QAction("Add to Worksheet", self)
+                    worksheet_action.triggered.connect(lambda: self._add_to_worksheet(question))
+            
+            menu.addAction(worksheet_action)
+        
+        # Show menu at cursor position
+        menu.exec(self.question_table.viewport().mapToGlobal(position))
     
     # Maintain backward compatibility
     get_selected_worksheet_questions = get_selected_for_worksheet

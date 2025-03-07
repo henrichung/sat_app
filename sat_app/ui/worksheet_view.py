@@ -78,10 +78,12 @@ class WorksheetView(QWidget):
         
         # Main content
         self.content_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.content_splitter.setChildrenCollapsible(False)  # Prevent children from collapsing completely
         main_layout.addWidget(self.content_splitter, 1)  # Give it stretch
         
         # Right panel: Worksheet settings and preview
         right_panel = QWidget()
+        right_panel.setMinimumWidth(350)  # Ensure settings panel is always usable
         right_layout = QVBoxLayout(right_panel)
         
         # Worksheet settings

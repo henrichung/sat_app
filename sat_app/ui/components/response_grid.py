@@ -37,7 +37,7 @@ class ResponseGridCell(QFrame):
         
         # Setup UI
         self.setFrameShape(QFrame.Shape.StyledPanel)
-        self.setStyleSheet("QFrame { background-color: #f8f8f8; border-radius: 5px; padding: 8px; }")
+        self.setProperty("class", "ResponseGridCell") # Used for theme-based styling
         
         self._setup_ui()
     
@@ -53,7 +53,10 @@ class ResponseGridCell(QFrame):
         
         self.question_label = QLabel(question_text)
         self.question_label.setWordWrap(True)
-        self.question_label.setStyleSheet("font-weight: bold;")
+        self.question_label.setProperty("class", "question-label") # Used for theme-based styling
+        font = self.question_label.font()
+        font.setBold(True)
+        self.question_label.setFont(font)
         layout.addWidget(self.question_label)
         
         # Response buttons

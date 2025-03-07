@@ -17,88 +17,6 @@ from PyQt6.QtGui import QPixmap, QIcon, QImage, QTextCursor
 from ..business.question_manager import QuestionManager
 from ..dal.models import Question
 from ..utils.logger import get_logger
-from ..rendering.pdf_generator import LatexEquationRenderer
-
-
-class LatexEquationDialog(QDialog):
-    """
-    Dialog for inserting and editing LaTeX equations.
-    """
-    
-    def __init__(self, parent=None, initial_equation: str = ""):
-        """
-        Initialize the LaTeX equation dialog.
-        
-        Args:
-            parent: The parent widget
-            initial_equation: Initial equation to edit
-        """
-        super().__init__(parent)
-        self.setWindowTitle("LaTeX Equation Editor")
-        self.setMinimumSize(600, 400)
-        
-        # Create layout
-        main_layout = QVBoxLayout(self)
-        
-        # Add equation editor
-        editor_widget = QWidget()
-        editor_layout = QVBoxLayout(editor_widget)
-        editor_layout.addWidget(QLabel("Enter LaTeX Equation:"))
-        
-        self.equation_editor = QTextEdit()
-        self.equation_editor.setPlainText(initial_equation)
-        editor_layout.addWidget(self.equation_editor)
-        
-        # Add common equation buttons
-        button_layout = QHBoxLayout()
-        
-        self._add_latex_button(button_layout, "Fraction", "\\frac{x}{y}")
-        self._add_latex_button(button_layout, "Square Root", "\\sqrt{x}")
-        self._add_latex_button(button_layout, "Exponent", "x^{n}")
-        self._add_latex_button(button_layout, "Subscript", "x_{i}")
-        self._add_latex_button(button_layout, "Sum", "\\sum_{i=1}^{n} x_i")
-        self._add_latex_button(button_layout, "Integral", "\\int_{a}^{b} f(x) dx")
-        
-        editor_layout.addLayout(button_layout)
-        
-        # Add helpful examples
-        help_text = QLabel("Use $...$ for inline math. Example: $\\frac{x}{y}$ or $\\sqrt{x^2 + y^2}$")
-        help_text.setStyleSheet("font-style: italic; color: #666; font-size: 9pt;")
-        editor_layout.addWidget(help_text)
-        
-        main_layout.addWidget(editor_widget)
-        
-        # Add dialog buttons
-        button_box = QHBoxLayout()
-        button_box.addStretch()
-        
-        self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self.reject)
-        button_box.addWidget(self.cancel_button)
-        
-        self.ok_button = QPushButton("Insert Equation")
-        self.ok_button.setDefault(True)
-        self.ok_button.clicked.connect(self.accept)
-        button_box.addWidget(self.ok_button)
-        
-        main_layout.addLayout(button_box)
-        
-    def _add_latex_button(self, layout, label: str, latex: str):
-        """Add a button for inserting a LaTeX template."""
-        button = QPushButton(label)
-        button.clicked.connect(lambda: self._insert_latex(latex))
-        layout.addWidget(button)
-        
-    def _insert_latex(self, latex: str):
-        """Insert LaTeX template at cursor position."""
-        cursor = self.equation_editor.textCursor()
-        cursor.insertText(latex)
-        self.equation_editor.setFocus()
-        
-    def get_equation(self) -> str:
-        """Get the entered equation."""
-        return self.equation_editor.toPlainText().strip()
-
 
 class QuestionEditor(QWidget):
     """
@@ -129,9 +47,6 @@ class QuestionEditor(QWidget):
             'A': None, 'B': None, 'C': None, 'D': None
         }
         
-        # Create LaTeX renderer for equations
-        self.latex_renderer = LatexEquationRenderer()
-        
         # Create layout
         main_layout = QVBoxLayout(self)
         
@@ -153,14 +68,6 @@ class QuestionEditor(QWidget):
         self.question_text.setMinimumHeight(100)
         question_text_layout.addWidget(self.question_text)
         
-        # Add LaTeX toolbar
-        latex_toolbar = QHBoxLayout()
-        
-        self.latex_equation_button = QPushButton("Insert Equation")
-        self.latex_equation_button.clicked.connect(lambda: self._open_latex_dialog(self.question_text))
-        latex_toolbar.addWidget(self.latex_equation_button)
-        
-        question_text_layout.addLayout(latex_toolbar)
         question_layout.addRow("Question Text:", question_text_layout)
         
         # Question image
@@ -206,12 +113,6 @@ class QuestionEditor(QWidget):
         self.answer_a.setMaximumHeight(80)
         answer_a_layout.addWidget(self.answer_a)
         
-        # Add LaTeX button for answer A
-        self.latex_a_button = QPushButton("LaTeX")
-        self.latex_a_button.setMaximumWidth(60)
-        self.latex_a_button.clicked.connect(lambda: self._open_latex_dialog(self.answer_a))
-        answer_a_layout.addWidget(self.latex_a_button, alignment=Qt.AlignmentFlag.AlignRight)
-        
         answers_layout.addLayout(answer_a_layout, 0, 1)
         
         answer_a_image_layout = QHBoxLayout()
@@ -235,12 +136,6 @@ class QuestionEditor(QWidget):
         self.answer_b.setPlaceholderText("Enter answer option B... Use $...$ for LaTeX equations")
         self.answer_b.setMaximumHeight(80)
         answer_b_layout.addWidget(self.answer_b)
-        
-        # Add LaTeX button for answer B
-        self.latex_b_button = QPushButton("LaTeX")
-        self.latex_b_button.setMaximumWidth(60)
-        self.latex_b_button.clicked.connect(lambda: self._open_latex_dialog(self.answer_b))
-        answer_b_layout.addWidget(self.latex_b_button, alignment=Qt.AlignmentFlag.AlignRight)
         
         answers_layout.addLayout(answer_b_layout, 1, 1)
         
@@ -266,12 +161,6 @@ class QuestionEditor(QWidget):
         self.answer_c.setMaximumHeight(80)
         answer_c_layout.addWidget(self.answer_c)
         
-        # Add LaTeX button for answer C
-        self.latex_c_button = QPushButton("LaTeX")
-        self.latex_c_button.setMaximumWidth(60)
-        self.latex_c_button.clicked.connect(lambda: self._open_latex_dialog(self.answer_c))
-        answer_c_layout.addWidget(self.latex_c_button, alignment=Qt.AlignmentFlag.AlignRight)
-        
         answers_layout.addLayout(answer_c_layout, 2, 1)
         
         answer_c_image_layout = QHBoxLayout()
@@ -295,12 +184,6 @@ class QuestionEditor(QWidget):
         self.answer_d.setPlaceholderText("Enter answer option D... Use $...$ for LaTeX equations")
         self.answer_d.setMaximumHeight(80)
         answer_d_layout.addWidget(self.answer_d)
-        
-        # Add LaTeX button for answer D
-        self.latex_d_button = QPushButton("LaTeX")
-        self.latex_d_button.setMaximumWidth(60)
-        self.latex_d_button.clicked.connect(lambda: self._open_latex_dialog(self.answer_d))
-        answer_d_layout.addWidget(self.latex_d_button, alignment=Qt.AlignmentFlag.AlignRight)
         
         answers_layout.addLayout(answer_d_layout, 3, 1)
         
@@ -326,16 +209,6 @@ class QuestionEditor(QWidget):
         self.explanation.setPlaceholderText("Enter explanation for the correct answer... Use $...$ for LaTeX equations")
         self.explanation.setMinimumHeight(100)
         explanation_layout.addWidget(self.explanation)
-        
-        # Add LaTeX support for explanation
-        explanation_latex_layout = QHBoxLayout()
-        explanation_latex_layout.addStretch()
-        
-        self.explanation_latex_button = QPushButton("Insert LaTeX Equation")
-        self.explanation_latex_button.clicked.connect(lambda: self._open_latex_dialog(self.explanation))
-        explanation_latex_layout.addWidget(self.explanation_latex_button)
-        
-        explanation_layout.addLayout(explanation_latex_layout)
         
         explanation_group.setLayout(explanation_layout)
         scroll_layout.addWidget(explanation_group)
@@ -570,49 +443,3 @@ class QuestionEditor(QWidget):
         self.answer_image_paths[option] = None
         getattr(self, f"answer_{option.lower()}_image_label").setText("No image")
         self.logger.debug(f"Cleared image for answer {option}")
-        
-    def _open_latex_dialog(self, text_editor: QTextEdit):
-        """
-        Open the LaTeX equation editor dialog.
-        
-        Args:
-            text_editor: The text editor to insert the equation into
-        """
-        # Get the current selection or equation at cursor position
-        cursor = text_editor.textCursor()
-        current_equation = ""
-        
-        if cursor.hasSelection():
-            # Check if the selection is a LaTeX equation
-            selection = cursor.selectedText()
-            if selection.startswith("$") and selection.endswith("$"):
-                current_equation = selection[1:-1]  # Remove the $ signs
-            else:
-                current_equation = selection
-        else:
-            # Try to find an equation at the cursor position
-            text = text_editor.toPlainText()
-            position = cursor.position()
-            
-            # Use a regex to find equations in the text
-            pattern = r'\$(.*?)\$'
-            for match in re.finditer(pattern, text):
-                start, end = match.span()
-                if start <= position <= end:
-                    current_equation = match.group(1)
-                    # Select the equation in the text editor
-                    cursor.setPosition(start)
-                    cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
-                    text_editor.setTextCursor(cursor)
-                    break
-        
-        # Open the LaTeX equation dialog
-        dialog = LatexEquationDialog(self, current_equation)
-        if dialog.exec():
-            equation = dialog.get_equation()
-            if equation:
-                # Insert the equation with $ delimiters
-                cursor = text_editor.textCursor()
-                cursor.removeSelectedText()
-                cursor.insertText(f"${equation}$")
-                text_editor.setFocus()
