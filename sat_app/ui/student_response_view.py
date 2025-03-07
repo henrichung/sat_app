@@ -4,15 +4,15 @@ Provides functionality for recording student responses to worksheets.
 """
 import logging
 from typing import Dict, List, Any, Optional
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox,
     QSplitter, QTabWidget, QGroupBox, QLineEdit, QRadioButton,
     QButtonGroup, QScrollArea, QFrame, QCheckBox, QHeaderView,
     QGridLayout, QSpacerItem, QSizePolicy
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QSize
-from PyQt5.QtGui import QFont, QIcon, QPixmap
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtGui import QFont, QIcon, QPixmap
 
 from sat_app.business.scorer import ScoringService
 from sat_app.ui.components.response_grid import ResponseGrid

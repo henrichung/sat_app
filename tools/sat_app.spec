@@ -15,12 +15,13 @@ a = Analysis(
         'PIL.Image', 'PIL.ImageDraw', 'PIL.ImageFont',
         'reportlab.lib.utils', 'reportlab.lib.colors', 'reportlab.lib.styles', 
         'reportlab.pdfbase', 'reportlab.pdfbase.ttfonts', 'reportlab.platypus',
-        'matplotlib.backends.backend_agg'
+        'matplotlib.backends.backend_agg',
+        'PyQt6', 'PyQt6.QtCore', 'PyQt6.QtGui', 'PyQt6.QtWidgets', 'PyQt6.sip'
     ],
     hookspath=['.'],
     hooksconfig={},
     runtime_hooks=['runtime-hooks/pil_import_hook.py'],
-    excludes=[],
+    excludes=['PyQt5', 'PySide6'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,

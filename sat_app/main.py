@@ -16,20 +16,20 @@ if getattr(sys, 'frozen', False):
     bundle_dir = os.path.dirname(sys.executable)
     sys.path.insert(0, bundle_dir)
     
-    # Add PyQt5 path specifically if we're frozen
-    # Look for PyQt5 in potential locations
+    # Add PyQt6 path specifically if we're frozen
+    # Look for PyQt6 in potential locations
     potential_pyqt_paths = [
-        os.path.join(bundle_dir, 'PyQt5'),
-        os.path.join(bundle_dir, 'lib', 'PyQt5'),
-        os.path.join(bundle_dir, 'lib', 'site-packages', 'PyQt5'),
-        os.path.join(bundle_dir, 'pkgs', 'PyQt5'),
+        os.path.join(bundle_dir, 'PyQt6'),
+        os.path.join(bundle_dir, 'lib', 'PyQt6'),
+        os.path.join(bundle_dir, 'lib', 'site-packages', 'PyQt6'),
+        os.path.join(bundle_dir, 'pkgs', 'PyQt6'),
     ]
     
     for path in potential_pyqt_paths:
         if os.path.exists(path):
             if path not in sys.path:
                 sys.path.insert(0, path)
-                print(f"Added PyQt5 path: {path}")
+                print(f"Added PyQt6 path: {path}")
                 break
 else:
     # Running in normal Python environment
@@ -37,34 +37,22 @@ else:
     if parent_dir not in sys.path:
         sys.path.insert(0, parent_dir)
 
-# Try importing PyQt5 with detailed error reporting
+# Try importing PyQt6 with detailed error reporting
 try:
-    # First try to import sip - it's needed by PyQt5
+    # Try to import sip through PyQt6
     try:
-        import sip
-        print(f"Successfully imported sip from {sip.__file__}")
+        import PyQt6.sip
+        print(f"Successfully imported PyQt6.sip")
     except ImportError as e:
-        print(f"Warning: Could not import sip directly: {e}")
-        # It might be inside PyQt5, which is fine
-        
-    # Now try to import PyQt5
-    import PyQt5
-    print(f"Successfully imported PyQt5 from {PyQt5.__file__}")
-    
-    # Try to import sip through PyQt5 if needed
-    try:
-        import PyQt5.sip
-        print(f"Successfully imported PyQt5.sip")
-    except ImportError as e:
-        print(f"Warning: Could not import PyQt5.sip: {e}")
+        print(f"Warning: Could not import PyQt6.sip: {e}")
         # Only warn, don't fail, as some versions have different structure
         
-    # Finally import the widgets module
-    from PyQt5.QtWidgets import QApplication
-    from PyQt5.QtCore import Qt
-    print("Successfully imported PyQt5.QtWidgets and PyQt5.QtCore")
+    # Import the widgets module
+    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtCore import Qt
+    print("Successfully imported PyQt6.QtWidgets and PyQt6.QtCore")
 except ImportError as e:
-    print(f"Error importing PyQt5: {e}")
+    print(f"Error importing PyQt6: {e}")
     print(f"Current sys.path: {sys.path}")
     if getattr(sys, 'frozen', False):
         print(f"Frozen application directory: {bundle_dir}")

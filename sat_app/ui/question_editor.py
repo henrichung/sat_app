@@ -6,13 +6,13 @@ import os
 import re
 import tempfile
 from typing import Optional, Dict, Any, Callable, Tuple, List
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QTextEdit, QComboBox,
     QPushButton, QFileDialog, QGridLayout, QMessageBox, QGroupBox, QRadioButton,
     QButtonGroup, QFormLayout, QScrollArea, QToolButton, QDialog, QSplitter
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QSize, QByteArray, QTimer
-from PyQt5.QtGui import QPixmap, QIcon, QImage, QTextCursor
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QByteArray, QTimer
+from PyQt6.QtGui import QPixmap, QIcon, QImage, QTextCursor
 
 from ..business.question_manager import QuestionManager
 from ..dal.models import Question
@@ -39,7 +39,7 @@ class LatexPreviewWidget(QWidget):
         
         # Add preview label - reduced height and padding for more proportion
         self.preview_label = QLabel("LaTeX Preview")
-        self.preview_label.setAlignment(Qt.AlignCenter)
+        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_label.setStyleSheet(
             "background-color: white; border: 1px solid #ccc; padding: 6px;"
         )
@@ -118,7 +118,7 @@ class LatexPreviewWidget(QWidget):
                         Qt.TransformationMode.SmoothTransformation
                     )
                     self.preview_label.setPixmap(scaled_pixmap)
-                    self.preview_label.setAlignment(Qt.AlignCenter)
+                    self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                     return
             
             # If we get here, something failed
@@ -181,7 +181,7 @@ class LatexEquationDialog(QDialog):
         main_layout = QVBoxLayout(self)
         
         # Create splitter for editor and preview
-        splitter = QSplitter(Qt.Vertical)
+        splitter = QSplitter(Qt.Orientation.Vertical)
         
         # Add equation editor
         editor_widget = QWidget()
@@ -398,7 +398,7 @@ class QuestionEditor(QWidget):
         self.latex_a_button = QPushButton("LaTeX")
         self.latex_a_button.setMaximumWidth(60)
         self.latex_a_button.clicked.connect(lambda: self._open_latex_dialog(self.answer_a))
-        answer_a_layout.addWidget(self.latex_a_button, alignment=Qt.AlignRight)
+        answer_a_layout.addWidget(self.latex_a_button, alignment=Qt.AlignmentFlag.AlignRight)
         
         answers_layout.addLayout(answer_a_layout, 0, 1)
         
@@ -428,7 +428,7 @@ class QuestionEditor(QWidget):
         self.latex_b_button = QPushButton("LaTeX")
         self.latex_b_button.setMaximumWidth(60)
         self.latex_b_button.clicked.connect(lambda: self._open_latex_dialog(self.answer_b))
-        answer_b_layout.addWidget(self.latex_b_button, alignment=Qt.AlignRight)
+        answer_b_layout.addWidget(self.latex_b_button, alignment=Qt.AlignmentFlag.AlignRight)
         
         answers_layout.addLayout(answer_b_layout, 1, 1)
         
@@ -458,7 +458,7 @@ class QuestionEditor(QWidget):
         self.latex_c_button = QPushButton("LaTeX")
         self.latex_c_button.setMaximumWidth(60)
         self.latex_c_button.clicked.connect(lambda: self._open_latex_dialog(self.answer_c))
-        answer_c_layout.addWidget(self.latex_c_button, alignment=Qt.AlignRight)
+        answer_c_layout.addWidget(self.latex_c_button, alignment=Qt.AlignmentFlag.AlignRight)
         
         answers_layout.addLayout(answer_c_layout, 2, 1)
         
@@ -488,7 +488,7 @@ class QuestionEditor(QWidget):
         self.latex_d_button = QPushButton("LaTeX")
         self.latex_d_button.setMaximumWidth(60)
         self.latex_d_button.clicked.connect(lambda: self._open_latex_dialog(self.answer_d))
-        answer_d_layout.addWidget(self.latex_d_button, alignment=Qt.AlignRight)
+        answer_d_layout.addWidget(self.latex_d_button, alignment=Qt.AlignmentFlag.AlignRight)
         
         answers_layout.addLayout(answer_d_layout, 3, 1)
         

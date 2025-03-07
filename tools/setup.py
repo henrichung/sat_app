@@ -8,7 +8,7 @@ setup(
     install_requires=[
         "matplotlib>=3.10.0",
         "numpy>=2.2.0",
-        "PyQt5>=5.15.0",
+        "PyQt6>=6.8.0",
         "pillow>=11.0.0",
         "reportlab>=4.3.0",
         "pycairo>=1.27.0",

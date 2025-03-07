@@ -9,13 +9,13 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import numpy as np
 
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
     QTabWidget, QTableWidget, QTableWidgetItem, QSplitter,
     QPushButton, QLineEdit, QMessageBox, QGroupBox, QFormLayout
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QSize
-from PyQt5.QtGui import QColor, QPalette, QFont
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtGui import QColor, QPalette, QFont
 
 from sat_app.business.scorer import ScoringService
 
@@ -282,7 +282,7 @@ class MasteryLevelWidget(QWidget):
             
             # Mastery Level
             level_item = QTableWidgetItem(data.get("level", ""))
-            level_item.setTextAlignment(Qt.AlignCenter)
+            level_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(row, 1, level_item)
             
             # Set background color based on level
@@ -301,19 +301,19 @@ class MasteryLevelWidget(QWidget):
             # Percentage
             percentage = data.get("percentage", 0)
             percentage_item = QTableWidgetItem(f"{percentage:.1f}%")
-            percentage_item.setTextAlignment(Qt.AlignCenter)
+            percentage_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(row, 2, percentage_item)
             
             # Attempted
             attempted = data.get("questions_attempted", 0)
             attempted_item = QTableWidgetItem(str(attempted))
-            attempted_item.setTextAlignment(Qt.AlignCenter)
+            attempted_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(row, 3, attempted_item)
             
             # Correct
             correct = data.get("questions_correct", 0)
             correct_item = QTableWidgetItem(str(correct))
-            correct_item.setTextAlignment(Qt.AlignCenter)
+            correct_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(row, 4, correct_item)
         
         # Resize columns to content
@@ -346,7 +346,7 @@ class StudentPerformanceTab(QWidget):
         self.layout.addWidget(self.student_selector)
         
         # Create a splitter for the main content
-        self.splitter = QSplitter(Qt.Vertical)
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
         self.layout.addWidget(self.splitter)
         
         # Create summary box
@@ -607,19 +607,19 @@ class WorksheetPerformanceTab(QWidget):
             # Questions
             questions = student_perf.get("total_questions", 0)
             questions_item = QTableWidgetItem(str(questions))
-            questions_item.setTextAlignment(Qt.AlignCenter)
+            questions_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.students_table.setItem(row, 1, questions_item)
             
             # Correct
             correct = student_perf.get("correct_answers", 0)
             correct_item = QTableWidgetItem(str(correct))
-            correct_item.setTextAlignment(Qt.AlignCenter)
+            correct_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.students_table.setItem(row, 2, correct_item)
             
             # Score
             percentage = student_perf.get("percentage", 0)
             score_item = QTableWidgetItem(f"{percentage:.1f}%")
-            score_item.setTextAlignment(Qt.AlignCenter)
+            score_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.students_table.setItem(row, 3, score_item)
         
         # Resize columns to content
@@ -708,13 +708,13 @@ class OverallAnalyticsTab(QWidget):
             # Question ID
             question_id = question.get("question_id", 0)
             id_item = QTableWidgetItem(str(question_id))
-            id_item.setTextAlignment(Qt.AlignCenter)
+            id_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.difficult_table.setItem(row, 0, id_item)
             
             # Success Rate
             success_rate = question.get("success_rate", 0)
             rate_item = QTableWidgetItem(f"{success_rate:.1f}%")
-            rate_item.setTextAlignment(Qt.AlignCenter)
+            rate_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.difficult_table.setItem(row, 1, rate_item)
         
         # Update easy questions table
@@ -725,13 +725,13 @@ class OverallAnalyticsTab(QWidget):
             # Question ID
             question_id = question.get("question_id", 0)
             id_item = QTableWidgetItem(str(question_id))
-            id_item.setTextAlignment(Qt.AlignCenter)
+            id_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.easy_table.setItem(row, 0, id_item)
             
             # Success Rate
             success_rate = question.get("success_rate", 0)
             rate_item = QTableWidgetItem(f"{success_rate:.1f}%")
-            rate_item.setTextAlignment(Qt.AlignCenter)
+            rate_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.easy_table.setItem(row, 1, rate_item)
         
         # Resize columns to content
@@ -764,7 +764,7 @@ class AnalyticsDashboard(QWidget):
         
         # Create title label
         self.title_label = QLabel("Performance Analytics Dashboard")
-        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_font = QFont()
         title_font.setBold(True)
         title_font.setPointSize(14)

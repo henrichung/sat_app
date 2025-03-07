@@ -6,12 +6,12 @@ import os
 import logging
 from typing import Dict, Any, Optional
 
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QLineEdit,
     QPushButton, QComboBox, QSpinBox, QFormLayout, QFileDialog,
     QMessageBox, QGroupBox, QScrollArea, QSizePolicy, QCheckBox
 )
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal
 
 from sat_app.business.settings_manager import SettingsManager
 

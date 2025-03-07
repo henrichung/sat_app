@@ -4,13 +4,13 @@ Provides a grid-based interface for recording student responses.
 """
 import logging
 from typing import Dict, List, Any, Optional
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QRadioButton, QButtonGroup, QScrollArea, QFrame,
     QGridLayout, QSpacerItem, QSizePolicy
 )
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QFont
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QFont
 
 
 class ResponseGridCell(QFrame):

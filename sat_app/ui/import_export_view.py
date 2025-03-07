@@ -8,15 +8,15 @@ questions in JSON format.
 import os
 import logging
 from typing import List, Dict, Any, Optional, Tuple
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QPushButton,
     QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox,
     QProgressBar, QMessageBox, QGroupBox, QRadioButton, QButtonGroup,
     QComboBox, QLineEdit, QScrollArea, QFormLayout, QGridLayout,
     QSplitter
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QSize
-from PyQt5.QtGui import QIcon
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtGui import QIcon
 
 from sat_app.business.import_export_manager import ImportExportManager
 from sat_app.business.question_manager import QuestionManager

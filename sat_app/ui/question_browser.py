@@ -4,15 +4,15 @@ Provides functionality to browse, search, and filter questions.
 """
 import os
 from typing import List, Dict, Any, Optional
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QCheckBox,
     QGroupBox, QFormLayout, QMessageBox, QMenu, QAbstractItemView,
     QDialog, QDialogButtonBox, QScrollArea
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QSize
-from PyQt5.QtWidgets import QAction
-from PyQt5.QtGui import QIcon
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QIcon
 
 from ..business.question_manager import QuestionManager
 from ..dal.models import Question
@@ -199,7 +199,7 @@ class QuestionBrowser(QWidget):
         pagination_layout.addWidget(self.prev_page_button)
         
         self.page_label = QLabel("Page 1")
-        pagination_layout.addWidget(self.page_label, 1, Qt.AlignCenter)
+        pagination_layout.addWidget(self.page_label, 1, Qt.AlignmentFlag.AlignCenter)
         
         self.next_page_button = QPushButton("Next")
         self.next_page_button.clicked.connect(self.next_page)
@@ -524,7 +524,7 @@ class QuestionBrowser(QWidget):
     
     def _on_answered_filter_changed(self, state):
         """Handle change in the 'Hide Already Answered' checkbox."""
-        self.show_answered_questions = (state == Qt.CheckState.Checked)
+        self.show_answered_questions = (state == Qt.CheckState.Checked.value)
         self.refresh_questions()
     
     def _load_student_answered_questions(self, student_id):

@@ -13,12 +13,9 @@ packaging
 pillow
 ply
 PyPDF2==3.0.1
-PyQt5==5.15.11
-PyQt5_sip
-PyQt6
-PyQt6-Qt6
+PyQt6==6.8.1
+PyQt6-Qt6==6.8.1
 PyQt6_sip==13.10.0
-PySide6==6.8.1
 python-dateutil
 pyparsing
 pyinstaller==6.12.0
