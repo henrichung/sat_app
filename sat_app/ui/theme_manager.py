@@ -26,6 +26,32 @@ class ThemeManager:
     creating stylesheets, and maintaining consistent styling.
     """
     
+    # Color definitions for difficulty levels
+    DIFFICULTY_COLORS = {
+        "Easy": {"light": "#4CAF50", "dark": "#388E3C"},       # Green
+        "Medium": {"light": "#FFC107", "dark": "#FFA000"},     # Amber
+        "Hard": {"light": "#FF9800", "dark": "#F57C00"},       # Orange
+        "Very Hard": {"light": "#F44336", "dark": "#D32F2F"}   # Red
+    }
+    
+    # Color definitions for status indicators
+    STATUS_COLORS = {
+        "correct": {"light": "#4CAF50", "dark": "#388E3C"},       # Green
+        "incorrect": {"light": "#F44336", "dark": "#D32F2F"},     # Red
+        "unanswered": {"light": "#9E9E9E", "dark": "#757575"},    # Gray
+        "in_progress": {"light": "#2196F3", "dark": "#1976D2"},   # Blue
+        "completed": {"light": "#9C27B0", "dark": "#7B1FA2"}      # Purple
+    }
+    
+    # Color definitions for action buttons
+    ACTION_BUTTON_COLORS = {
+        "view": {"light": "#2196F3", "dark": "#1976D2"},       # Blue
+        "edit": {"light": "#FF9800", "dark": "#F57C00"},       # Orange
+        "delete": {"light": "#F44336", "dark": "#D32F2F"},     # Red
+        "add": {"light": "#4CAF50", "dark": "#388E3C"},        # Green
+        "remove": {"light": "#F44336", "dark": "#D32F2F"}      # Red
+    }
+    
     def __init__(self):
         """Initialize the theme manager."""
         self.logger = logging.getLogger(__name__)
@@ -188,6 +214,95 @@ class ThemeManager:
                 background-color: #c0c0c0;
             }}
             
+            /* Action button styling */
+            QPushButton[class="view-button"] {{
+                background-color: {self.ACTION_BUTTON_COLORS["view"]["light"]};
+                color: white;
+                border: 1px solid {self.ACTION_BUTTON_COLORS["view"]["light"]};
+            }}
+            
+            QPushButton[class="edit-button"] {{
+                background-color: {self.ACTION_BUTTON_COLORS["edit"]["light"]};
+                color: white;
+                border: 1px solid {self.ACTION_BUTTON_COLORS["edit"]["light"]};
+            }}
+            
+            QPushButton[class="delete-button"] {{
+                background-color: {self.ACTION_BUTTON_COLORS["delete"]["light"]};
+                color: white;
+                border: 1px solid {self.ACTION_BUTTON_COLORS["delete"]["light"]};
+            }}
+            
+            QPushButton[class="add-button"] {{
+                background-color: {self.ACTION_BUTTON_COLORS["add"]["light"]};
+                color: white;
+                border: 1px solid {self.ACTION_BUTTON_COLORS["add"]["light"]};
+            }}
+            
+            QPushButton[class="remove-button"] {{
+                background-color: {self.ACTION_BUTTON_COLORS["remove"]["light"]};
+                color: white;
+                border: 1px solid {self.ACTION_BUTTON_COLORS["remove"]["light"]};
+            }}
+            
+            /* Status indicator styling */
+            QLabel[class="status-correct"] {{
+                color: {self.STATUS_COLORS["correct"]["light"]};
+                font-weight: bold;
+            }}
+            
+            QLabel[class="status-incorrect"] {{
+                color: {self.STATUS_COLORS["incorrect"]["light"]};
+                font-weight: bold;
+            }}
+            
+            QLabel[class="status-unanswered"] {{
+                color: {self.STATUS_COLORS["unanswered"]["light"]};
+            }}
+            
+            QLabel[class="status-in-progress"] {{
+                color: {self.STATUS_COLORS["in_progress"]["light"]};
+                font-weight: bold;
+            }}
+            
+            QLabel[class="status-completed"] {{
+                color: {self.STATUS_COLORS["completed"]["light"]};
+                font-weight: bold;
+            }}
+            
+            /* Difficulty label styling */
+            QLabel[class="difficulty-easy"] {{
+                color: {self.DIFFICULTY_COLORS["Easy"]["light"]};
+                font-weight: bold;
+                background-color: {self.DIFFICULTY_COLORS["Easy"]["light"] + "30"};
+                border-radius: 4px;
+                padding: 2px 5px;
+            }}
+            
+            QLabel[class="difficulty-medium"] {{
+                color: {self.DIFFICULTY_COLORS["Medium"]["light"]};
+                font-weight: bold;
+                background-color: {self.DIFFICULTY_COLORS["Medium"]["light"] + "30"};
+                border-radius: 4px;
+                padding: 2px 5px;
+            }}
+            
+            QLabel[class="difficulty-hard"] {{
+                color: {self.DIFFICULTY_COLORS["Hard"]["light"]};
+                font-weight: bold;
+                background-color: {self.DIFFICULTY_COLORS["Hard"]["light"] + "30"};
+                border-radius: 4px;
+                padding: 2px 5px;
+            }}
+            
+            QLabel[class="difficulty-very-hard"] {{
+                color: {self.DIFFICULTY_COLORS["Very Hard"]["light"]};
+                font-weight: bold;
+                background-color: {self.DIFFICULTY_COLORS["Very Hard"]["light"] + "30"};
+                border-radius: 4px;
+                padding: 2px 5px;
+            }}
+            
             QTabWidget::pane {{
                 border: 1px solid #c0c0c0;
                 border-top: 0px;
@@ -337,6 +452,20 @@ class ThemeManager:
                 padding: 8px;
             }}
             
+            QFrame[class="ResponseGridCell-correct"] {{
+                background-color: {self.STATUS_COLORS["correct"]["light"] + "20"};
+                border: 1px solid {self.STATUS_COLORS["correct"]["light"]};
+                border-radius: 5px;
+                padding: 8px;
+            }}
+            
+            QFrame[class="ResponseGridCell-incorrect"] {{
+                background-color: {self.STATUS_COLORS["incorrect"]["light"] + "20"};
+                border: 1px solid {self.STATUS_COLORS["incorrect"]["light"]};
+                border-radius: 5px;
+                padding: 8px;
+            }}
+            
             /* Question label styling */
             QLabel[class="question-label"] {{
                 font-weight: bold;
@@ -375,6 +504,95 @@ class ThemeManager:
             
             QPushButton:pressed {{
                 background-color: #666666;
+            }}
+            
+            /* Action button styling */
+            QPushButton[class="view-button"] {{
+                background-color: {self.ACTION_BUTTON_COLORS["view"]["dark"]};
+                color: white;
+                border: 1px solid {self.ACTION_BUTTON_COLORS["view"]["dark"]};
+            }}
+            
+            QPushButton[class="edit-button"] {{
+                background-color: {self.ACTION_BUTTON_COLORS["edit"]["dark"]};
+                color: white;
+                border: 1px solid {self.ACTION_BUTTON_COLORS["edit"]["dark"]};
+            }}
+            
+            QPushButton[class="delete-button"] {{
+                background-color: {self.ACTION_BUTTON_COLORS["delete"]["dark"]};
+                color: white;
+                border: 1px solid {self.ACTION_BUTTON_COLORS["delete"]["dark"]};
+            }}
+            
+            QPushButton[class="add-button"] {{
+                background-color: {self.ACTION_BUTTON_COLORS["add"]["dark"]};
+                color: white;
+                border: 1px solid {self.ACTION_BUTTON_COLORS["add"]["dark"]};
+            }}
+            
+            QPushButton[class="remove-button"] {{
+                background-color: {self.ACTION_BUTTON_COLORS["remove"]["dark"]};
+                color: white;
+                border: 1px solid {self.ACTION_BUTTON_COLORS["remove"]["dark"]};
+            }}
+            
+            /* Status indicator styling */
+            QLabel[class="status-correct"] {{
+                color: {self.STATUS_COLORS["correct"]["dark"]};
+                font-weight: bold;
+            }}
+            
+            QLabel[class="status-incorrect"] {{
+                color: {self.STATUS_COLORS["incorrect"]["dark"]};
+                font-weight: bold;
+            }}
+            
+            QLabel[class="status-unanswered"] {{
+                color: {self.STATUS_COLORS["unanswered"]["dark"]};
+            }}
+            
+            QLabel[class="status-in-progress"] {{
+                color: {self.STATUS_COLORS["in_progress"]["dark"]};
+                font-weight: bold;
+            }}
+            
+            QLabel[class="status-completed"] {{
+                color: {self.STATUS_COLORS["completed"]["dark"]};
+                font-weight: bold;
+            }}
+            
+            /* Difficulty label styling */
+            QLabel[class="difficulty-easy"] {{
+                color: {self.DIFFICULTY_COLORS["Easy"]["dark"]};
+                font-weight: bold;
+                background-color: {self.DIFFICULTY_COLORS["Easy"]["dark"] + "30"};
+                border-radius: 4px;
+                padding: 2px 5px;
+            }}
+            
+            QLabel[class="difficulty-medium"] {{
+                color: {self.DIFFICULTY_COLORS["Medium"]["dark"]};
+                font-weight: bold;
+                background-color: {self.DIFFICULTY_COLORS["Medium"]["dark"] + "30"};
+                border-radius: 4px;
+                padding: 2px 5px;
+            }}
+            
+            QLabel[class="difficulty-hard"] {{
+                color: {self.DIFFICULTY_COLORS["Hard"]["dark"]};
+                font-weight: bold;
+                background-color: {self.DIFFICULTY_COLORS["Hard"]["dark"] + "30"};
+                border-radius: 4px;
+                padding: 2px 5px;
+            }}
+            
+            QLabel[class="difficulty-very-hard"] {{
+                color: {self.DIFFICULTY_COLORS["Very Hard"]["dark"]};
+                font-weight: bold;
+                background-color: {self.DIFFICULTY_COLORS["Very Hard"]["dark"] + "30"};
+                border-radius: 4px;
+                padding: 2px 5px;
             }}
             
             QTabWidget::pane {{
@@ -559,6 +777,20 @@ class ThemeManager:
             QFrame[class="ResponseGridCell"] {{
                 background-color: #2b2b2b;
                 border: 1px solid #222222;
+                border-radius: 5px;
+                padding: 8px;
+            }}
+            
+            QFrame[class="ResponseGridCell-correct"] {{
+                background-color: {self.STATUS_COLORS["correct"]["dark"] + "20"};
+                border: 1px solid {self.STATUS_COLORS["correct"]["dark"]};
+                border-radius: 5px;
+                padding: 8px;
+            }}
+            
+            QFrame[class="ResponseGridCell-incorrect"] {{
+                background-color: {self.STATUS_COLORS["incorrect"]["dark"] + "20"};
+                border: 1px solid {self.STATUS_COLORS["incorrect"]["dark"]};
                 border-radius: 5px;
                 padding: 8px;
             }}

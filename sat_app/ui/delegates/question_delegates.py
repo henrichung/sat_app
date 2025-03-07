@@ -5,13 +5,14 @@ Provides custom rendering and interaction for question table cells.
 from typing import Optional, Dict, Any
 from PyQt6.QtWidgets import (
     QStyledItemDelegate, QWidget, QHBoxLayout,
-    QPushButton, QApplication, QStyleOptionViewItem, QLabel
+    QPushButton, QApplication, QStyleOptionViewItem, QLabel, QStyle
 )
 from PyQt6.QtCore import Qt, QModelIndex, QRect, QEvent, QObject, pyqtSignal
-from PyQt6.QtGui import QFontMetrics, QPainter
+from PyQt6.QtGui import QFontMetrics, QPainter, QColor
 
 from ..models.question_table_model import QuestionTableModel
 from ...dal.models import Question
+from ..theme_manager import ThemeManager
 
 
 class ActionButtonDelegate(QStyledItemDelegate):
@@ -72,22 +73,25 @@ class ActionButtonDelegate(QStyledItemDelegate):
         widget = QWidget(parent)
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(2)
+        layout.setSpacing(4)  # Slightly more space between buttons
         
-        # View button
+        # View button - blue
         view_button = QPushButton("View")
+        view_button.setProperty("class", "view-button")
         view_button.setProperty("question_id", question_id)
         view_button.clicked.connect(lambda: self.viewQuestion.emit(int(question_id)))
         layout.addWidget(view_button)
         
-        # Edit button
+        # Edit button - orange
         edit_button = QPushButton("Edit")
+        edit_button.setProperty("class", "edit-button")
         edit_button.setProperty("question_id", question_id)
         edit_button.clicked.connect(lambda: self.editQuestion.emit(int(question_id)))
         layout.addWidget(edit_button)
         
-        # Delete button
+        # Delete button - red
         delete_button = QPushButton("Delete")
+        delete_button.setProperty("class", "delete-button")
         delete_button.setProperty("question_id", question_id)
         delete_button.clicked.connect(lambda: self.deleteQuestion.emit(int(question_id)))
         layout.addWidget(delete_button)
@@ -181,18 +185,20 @@ class StudentHistoryDelegate(QStyledItemDelegate):
                 # Display button showing which worksheet this was in
                 history_button = QPushButton(f"In WS #{worksheet_id}")
                 history_button.setToolTip(f"This question appeared in worksheet: {worksheet_title}")
-                history_button.setStyleSheet("background-color: #FFD580;")  # Light orange color
+                history_button.setProperty("class", "status-in-progress")
                 history_button.setProperty("worksheet_id", worksheet_id)
                 history_button.clicked.connect(lambda: self.worksheetClicked.emit(worksheet_id))
                 
                 layout.addWidget(history_button)
             else:
+                # Use the status label styling
                 history_label = QLabel("✓ Answered")
-                history_label.setStyleSheet("color: green; font-weight: bold;")
+                history_label.setProperty("class", "status-correct")
                 layout.addWidget(history_label)
         else:
             # Question has not been answered by this student
             history_label = QLabel("Not seen")
+            history_label.setProperty("class", "status-unanswered")
             layout.addWidget(history_label)
         
         return widget
@@ -207,6 +213,104 @@ class StudentHistoryDelegate(QStyledItemDelegate):
             index: Model index
         """
         editor.setGeometry(option.rect)
+
+
+class DifficultyDelegate(QStyledItemDelegate):
+    """
+    Delegate for rendering difficulty levels with color coding.
+    
+    Displays difficulty levels with appropriate colors based on the theme.
+    """
+    
+    def __init__(self, parent: Optional[QObject] = None):
+        """
+        Initialize the delegate.
+        
+        Args:
+            parent: Parent object
+        """
+        super().__init__(parent)
+        self.theme_manager = ThemeManager()
+        
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
+        """
+        Paint the cell with the appropriate difficulty color.
+        
+        Args:
+            painter: Painter to use
+            option: Style options
+            index: Model index
+        """
+        # Get the difficulty level from the model
+        difficulty = index.data(Qt.ItemDataRole.DisplayRole)
+        if not difficulty:
+            # If no difficulty, use the default rendering
+            super().paint(painter, option, index)
+            return
+        
+        # Clean and set up the cell
+        option = QStyleOptionViewItem(option)
+        self.initStyleOption(option, index)
+        
+        # Selection state handling (selected rows)
+        if option.state & QStyle.StateFlag.State_Selected:
+            painter.fillRect(option.rect, option.palette.highlight())
+            text_color = option.palette.highlightedText().color()
+        else:
+            painter.fillRect(option.rect, option.palette.base())
+            
+            # Get theme-appropriate color
+            current_theme = self.theme_manager.get_current_theme().value
+            theme_key = "dark" if current_theme == "dark" else "light"
+            
+            # Default to gray if not a known difficulty
+            bg_color = QColor("#9E9E9E")  # Default gray
+            text_color = QColor("#000000")  # Default black text
+            
+            # Set color based on difficulty
+            if difficulty in self.theme_manager.DIFFICULTY_COLORS:
+                color_hex = self.theme_manager.DIFFICULTY_COLORS[difficulty][theme_key]
+                bg_color = QColor(color_hex)
+                
+                # For light theme, use dark text for medium/easy and white for harder levels
+                if theme_key == "light" and difficulty in ["Easy", "Medium"]:
+                    text_color = QColor("#000000")
+                else:
+                    text_color = QColor("#FFFFFF")
+            
+            # Create a rounded background with semi-transparency
+            painter.save()
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            
+            # Add padding to the badge
+            padding = 6
+            badge_rect = option.rect.adjusted(padding, padding, -padding, -padding)
+            
+            # Set transparency for the background
+            bg_color.setAlpha(50)  # 20% opacity
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(bg_color)
+            painter.drawRoundedRect(badge_rect, 6, 6)  # Round corners
+            
+            # Set border with solid color
+            painter.setPen(QColor(bg_color.red(), bg_color.green(), bg_color.blue(), 200))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(badge_rect, 6, 6)
+            
+            painter.restore()
+        
+        # Draw text centered in the cell
+        painter.save()
+        painter.setPen(text_color)
+        
+        # Set font weight to bold
+        font = painter.font()
+        font.setBold(True)
+        painter.setFont(font)
+        
+        # Center text in cell
+        painter.drawText(option.rect, Qt.AlignmentFlag.AlignCenter, difficulty)
+        painter.restore()
 
 
 class WorksheetSelectionDelegate(QStyledItemDelegate):
@@ -299,10 +403,12 @@ class WorksheetSelectionDelegate(QStyledItemDelegate):
             layout.addWidget(add_button)
         elif is_selected:
             remove_button = QPushButton("Remove")
+            remove_button.setProperty("class", "remove-button")
             remove_button.clicked.connect(lambda: self.removeFromWorksheet.emit(question))
             layout.addWidget(remove_button)
         else:
             add_button = QPushButton("Add")
+            add_button.setProperty("class", "add-button")
             add_button.clicked.connect(lambda: self.addToWorksheet.emit(question))
             layout.addWidget(add_button)
         

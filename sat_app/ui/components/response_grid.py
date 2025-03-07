@@ -100,12 +100,21 @@ class ResponseGridCell(QFrame):
         # Block signals temporarily to avoid triggering the toggled event
         self.btn_group.blockSignals(True)
         
+        # First remove any special styling classes
+        self.setProperty("class", "ResponseGridCell")
+        
         if is_correct is True:
             self.correct_btn.setChecked(True)
+            self.setProperty("class", "ResponseGridCell-correct")
         elif is_correct is False:
             self.incorrect_btn.setChecked(True)
+            self.setProperty("class", "ResponseGridCell-incorrect")
         else:
             self.no_answer_btn.setChecked(True)
+        
+        # Force style recalculation
+        self.style().unpolish(self)
+        self.style().polish(self)
         
         self.btn_group.blockSignals(False)
     
@@ -116,10 +125,27 @@ class ResponseGridCell(QFrame):
         Args:
             is_correct: Whether the answer is correct
         """
+        # Update the styling based on response
+        if is_correct:
+            self.setProperty("class", "ResponseGridCell-correct")
+        else:
+            self.setProperty("class", "ResponseGridCell-incorrect")
+            
+        # Force style recalculation
+        self.style().unpolish(self)
+        self.style().polish(self)
+        
         self.response_changed.emit(self.question_id, is_correct)
     
     def _handle_clear(self):
         """Handle clearing the response."""
+        # Reset to default styling
+        self.setProperty("class", "ResponseGridCell")
+        
+        # Force style recalculation
+        self.style().unpolish(self)
+        self.style().polish(self)
+        
         self.response_changed.emit(self.question_id, None)
 
 

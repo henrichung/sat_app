@@ -17,7 +17,10 @@ from ..business.question_manager import QuestionManager
 from ..dal.models import Question
 from ..utils.logger import get_logger
 from .models.question_table_model import QuestionTableModel
-from .delegates.question_delegates import ActionButtonDelegate, StudentHistoryDelegate, WorksheetSelectionDelegate
+from .delegates.question_delegates import (
+    ActionButtonDelegate, StudentHistoryDelegate, 
+    WorksheetSelectionDelegate, DifficultyDelegate
+)
 
 
 class QuestionBrowser(QWidget):
@@ -174,6 +177,10 @@ class QuestionBrowser(QWidget):
         # Set up context menu for right-click actions
         self.question_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.question_table.customContextMenuRequested.connect(self._show_context_menu)
+        
+        # Difficulty delegate for color-coded difficulty display
+        self.difficulty_delegate = DifficultyDelegate(self)
+        self.question_table.setItemDelegateForColumn(QuestionTableModel.DIFFICULTY_COLUMN, self.difficulty_delegate)
         
         # Student history delegate
         self.student_history_delegate = StudentHistoryDelegate(self)
@@ -1021,8 +1028,19 @@ class QuestionDetailDialog(QDialog):
         tags_label = QLabel(", ".join(question.subject_tags))
         metadata_layout.addRow("Tags:", tags_label)
         
-        # Difficulty
+        # Difficulty with color coding
         difficulty_label = QLabel(question.difficulty_label)
+        
+        # Set style based on difficulty level
+        if question.difficulty_label == "Easy":
+            difficulty_label.setProperty("class", "difficulty-easy")
+        elif question.difficulty_label == "Medium":
+            difficulty_label.setProperty("class", "difficulty-medium")
+        elif question.difficulty_label == "Hard":
+            difficulty_label.setProperty("class", "difficulty-hard")
+        elif question.difficulty_label == "Very Hard":
+            difficulty_label.setProperty("class", "difficulty-very-hard")
+            
         metadata_layout.addRow("Difficulty:", difficulty_label)
         
         metadata_group.setLayout(metadata_layout)
