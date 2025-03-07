@@ -17,7 +17,7 @@ a = Analysis(
     ],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[r'E:/Projects/sat_app/runtime-hooks/pil_import_hook.py'],
+    runtime_hooks=[r'E:/Projects/sat_app/tools/runtime-hooks/pil_import_hook.py'],
     excludes=['PyQt5', 'PySide6'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

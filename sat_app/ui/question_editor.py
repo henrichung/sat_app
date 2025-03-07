@@ -11,153 +11,13 @@ from PyQt6.QtWidgets import (
     QPushButton, QFileDialog, QGridLayout, QMessageBox, QGroupBox, QRadioButton,
     QButtonGroup, QFormLayout, QScrollArea, QToolButton, QDialog, QSplitter
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QByteArray, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap, QIcon, QImage, QTextCursor
 
 from ..business.question_manager import QuestionManager
 from ..dal.models import Question
 from ..utils.logger import get_logger
 from ..rendering.pdf_generator import LatexEquationRenderer
-
-
-class LatexPreviewWidget(QWidget):
-    """
-    Widget for previewing LaTeX equations.
-    
-    Provides a live preview of LaTeX equations entered in a text editor.
-    """
-    
-    def __init__(self, parent=None):
-        """Initialize the LaTeX preview widget."""
-        super().__init__(parent)
-        
-        self.logger = get_logger(__name__)
-        self.latex_renderer = LatexEquationRenderer()
-        
-        # Create layout
-        layout = QVBoxLayout(self)
-        
-        # Add preview label - reduced height and padding for more proportion
-        self.preview_label = QLabel("LaTeX Preview")
-        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview_label.setStyleSheet(
-            "background-color: white; border: 1px solid #ccc; padding: 6px;"
-        )
-        # Reduced minimum height to better match text size
-        self.preview_label.setMinimumHeight(40) 
-        # Constrain maximum height to prevent oversized previews
-        self.preview_label.setMaximumHeight(60)
-        layout.addWidget(self.preview_label)
-        
-        # Add help button and text
-        help_layout = QHBoxLayout()
-        help_text = QLabel("Use $...$ for inline math. Example: $\\frac{x}{y}$ or $\\sqrt{x^2 + y^2}$")
-        help_text.setStyleSheet("font-style: italic; color: #666; font-size: 9pt;")
-        help_layout.addWidget(help_text)
-        help_layout.addStretch()
-        
-        # Add refresh button
-        self.refresh_button = QPushButton("Refresh Preview")
-        self.refresh_button.clicked.connect(self.update_preview)
-        self.refresh_button.setMaximumWidth(120) # Constrain button width
-        help_layout.addWidget(self.refresh_button)
-        
-        layout.addLayout(help_layout)
-        
-        # Set up a timer for delayed preview updates
-        self.update_timer = QTimer(self)
-        self.update_timer.setSingleShot(True)
-        self.update_timer.timeout.connect(self.update_preview)
-        
-        # Current equation being previewed
-        self.current_equation = ""
-        
-    def set_text_editor(self, editor: QTextEdit):
-        """
-        Connect to a text editor to enable live preview.
-        
-        Args:
-            editor: The QTextEdit widget to connect to
-        """
-        self.text_editor = editor
-        self.text_editor.textChanged.connect(self.schedule_update)
-        
-    def schedule_update(self):
-        """Schedule a preview update with delay to avoid excessive rendering."""
-        self.update_timer.start(500)  # 500ms delay
-        
-    def update_preview(self):
-        """Update the LaTeX preview based on the current text."""
-        try:
-            # Extract the current equation under the cursor or the first one found
-            cursor = self.text_editor.textCursor()
-            position = cursor.position()
-            text = self.text_editor.toPlainText()
-            
-            # Try to find the equation at or near the cursor position
-            equation = self._extract_equation_at_position(text, position)
-            
-            if not equation or equation == self.current_equation:
-                return
-                
-            self.current_equation = equation
-            
-            # Render the equation
-            preview_data = self.latex_renderer.render_for_preview(equation)
-            
-            if preview_data:
-                pixmap = QPixmap()
-                pixmap.loadFromData(QByteArray(preview_data))
-                if not pixmap.isNull():
-                    # Scale the pixmap to a more appropriate size for UI display
-                    # This ensures the preview is proportional to surrounding UI elements
-                    scaled_pixmap = pixmap.scaled(
-                        pixmap.width() * 0.8,  # Scale to 80% of original width
-                        pixmap.height() * 0.8,  # Scale to 80% of original height
-                        Qt.AspectRatioMode.KeepAspectRatio, 
-                        Qt.TransformationMode.SmoothTransformation
-                    )
-                    self.preview_label.setPixmap(scaled_pixmap)
-                    self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                    return
-            
-            # If we get here, something failed
-            self.preview_label.setText(f"Preview: ${equation}$")
-            
-        except Exception as e:
-            self.logger.error(f"Error updating LaTeX preview: {str(e)}")
-            self.preview_label.setText("Error rendering LaTeX")
-    
-    def _extract_equation_at_position(self, text: str, position: int) -> Optional[str]:
-        """
-        Extract the LaTeX equation at or near the given position in the text.
-        
-        Args:
-            text: The text containing LaTeX equations
-            position: The cursor position
-            
-        Returns:
-            The equation string, or None if no equation is found
-        """
-        # Find all equations in the text
-        pattern = r'\$(.*?)\$'
-        equations = [(match.start(), match.end(), match.group(1)) 
-                     for match in re.finditer(pattern, text)]
-        
-        if not equations:
-            return None
-            
-        # First, check if cursor is inside an equation
-        for start, end, equation in equations:
-            if start <= position <= end:
-                return equation
-                
-        # If not, find the closest equation
-        distances = [(abs(position - (start + end) // 2), equation) 
-                     for start, end, equation in equations]
-        distances.sort(key=lambda x: x[0])  # Sort by distance
-        
-        return distances[0][1] if distances else None
 
 
 class LatexEquationDialog(QDialog):
@@ -180,9 +40,6 @@ class LatexEquationDialog(QDialog):
         # Create layout
         main_layout = QVBoxLayout(self)
         
-        # Create splitter for editor and preview
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        
         # Add equation editor
         editor_widget = QWidget()
         editor_layout = QVBoxLayout(editor_widget)
@@ -204,20 +61,12 @@ class LatexEquationDialog(QDialog):
         
         editor_layout.addLayout(button_layout)
         
-        # Create and connect preview widget
-        preview_widget = QWidget()
-        preview_layout = QVBoxLayout(preview_widget)
-        preview_layout.addWidget(QLabel("Preview:"))
+        # Add helpful examples
+        help_text = QLabel("Use $...$ for inline math. Example: $\\frac{x}{y}$ or $\\sqrt{x^2 + y^2}$")
+        help_text.setStyleSheet("font-style: italic; color: #666; font-size: 9pt;")
+        editor_layout.addWidget(help_text)
         
-        self.preview = LatexPreviewWidget()
-        self.preview.set_text_editor(self.equation_editor)
-        preview_layout.addWidget(self.preview)
-        
-        # Add widgets to splitter
-        splitter.addWidget(editor_widget)
-        splitter.addWidget(preview_widget)
-        
-        main_layout.addWidget(splitter)
+        main_layout.addWidget(editor_widget)
         
         # Add dialog buttons
         button_box = QHBoxLayout()
@@ -233,9 +82,6 @@ class LatexEquationDialog(QDialog):
         button_box.addWidget(self.ok_button)
         
         main_layout.addLayout(button_box)
-        
-        # Initial preview
-        self.preview.update_preview()
         
     def _add_latex_button(self, layout, label: str, latex: str):
         """Add a button for inserting a LaTeX template."""
@@ -254,35 +100,6 @@ class LatexEquationDialog(QDialog):
         return self.equation_editor.toPlainText().strip()
 
 
-class QuestionEditor(QWidget):
-    """
-    Question editor widget.
-    
-    Provides forms for adding and editing questions, including text input,
-    image selection, and answer option management.
-    """
-    
-    # Signal emitted when a question is saved
-    question_saved = pyqtSignal(int)
-    
-    def __init__(self, question_manager: QuestionManager, parent=None):
-        """
-        Initialize the question editor.
-        
-        Args:
-            question_manager: The manager for question operations
-            parent: The parent widget
-        """
-        super().__init__(parent)
-        
-        self.logger = get_logger(__name__)
-        self.question_manager = question_manager
-        self.current_question_id: Optional[int] = None
-        self.question_image_path: Optional[str] = None
-        self.answer_image_paths: Dict[str, Optional[str]] = {
-            'A': None, 'B': None, 'C': None, 'D': None
-        }
-        
 class QuestionEditor(QWidget):
     """
     Question editor widget.
@@ -342,11 +159,6 @@ class QuestionEditor(QWidget):
         self.latex_equation_button = QPushButton("Insert Equation")
         self.latex_equation_button.clicked.connect(lambda: self._open_latex_dialog(self.question_text))
         latex_toolbar.addWidget(self.latex_equation_button)
-        
-        # Add LaTeX preview
-        self.latex_preview = LatexPreviewWidget()
-        self.latex_preview.set_text_editor(self.question_text)
-        question_text_layout.addWidget(self.latex_preview)
         
         question_text_layout.addLayout(latex_toolbar)
         question_layout.addRow("Question Text:", question_text_layout)
@@ -523,14 +335,7 @@ class QuestionEditor(QWidget):
         self.explanation_latex_button.clicked.connect(lambda: self._open_latex_dialog(self.explanation))
         explanation_latex_layout.addWidget(self.explanation_latex_button)
         
-        # Add LaTeX preview for explanations
-        explanation_preview_layout = QVBoxLayout()
-        self.explanation_preview = LatexPreviewWidget()
-        self.explanation_preview.set_text_editor(self.explanation)
-        explanation_preview_layout.addWidget(self.explanation_preview)
-        
         explanation_layout.addLayout(explanation_latex_layout)
-        explanation_layout.addLayout(explanation_preview_layout)
         
         explanation_group.setLayout(explanation_layout)
         scroll_layout.addWidget(explanation_group)
