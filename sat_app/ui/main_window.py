@@ -362,9 +362,9 @@ class MainWindow(QMainWindow):
                 self, 
                 "Clear Selections?", 
                 "Do you want to clear your worksheet selections?",
-                QMessageBox.Yes | QMessageBox.No
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
-            if response == QMessageBox.Yes:
+            if response == QMessageBox.StandardButton.Yes:
                 self.question_browser.clear_worksheet_selections()
             
         # If switching to worksheet mode, make sure we're in question editing mode

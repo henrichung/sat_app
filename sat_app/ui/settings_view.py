@@ -307,11 +307,11 @@ class SettingsView(QWidget):
             self, "Reset Settings",
             "Are you sure you want to reset all settings to default values?\n\n"
             "This cannot be undone.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             try:
                 # Reset settings
                 if self.settings_manager.reset_to_defaults():

@@ -343,11 +343,11 @@ class StudentResponseView(QWidget):
             self,
             "Confirm Clear",
             f"Are you sure you want to clear all responses for student {self.current_student_id} on this worksheet?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             try:
                 result = self.scoring_service.clear_student_worksheet_responses(
                     self.current_student_id,

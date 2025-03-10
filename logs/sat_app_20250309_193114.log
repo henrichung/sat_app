@@ -1,0 +1,11 @@
+2025-03-09 19:31:14 - __main__ - INFO - Starting SAT Question Bank Application
+2025-03-09 19:31:14 - sat_app.config.config_manager - INFO - Configuration loaded successfully
+2025-03-09 19:31:14 - sat_app.config.config_manager - INFO - Created required directories
+2025-03-09 19:31:14 - sat_app.dal.database_manager - INFO - Database initialized successfully at data/sat_app.db
+2025-03-09 19:31:14 - sat_app.ui.main_window - INFO - Set window size to 1536x864 based on screen resolution
+2025-03-09 19:31:14 - sat_app.ui.question_browser - INFO - Question browser initialized
+2025-03-09 19:31:14 - sat_app.ui.question_editor - INFO - Question editor initialized
+2025-03-09 19:31:14 - sat_app.ui.theme_manager - INFO - Applied dark theme with font size 14
+2025-03-09 19:31:14 - sat_app.ui.main_window - INFO - Applied dark theme with font size 14
+2025-03-09 19:31:14 - sat_app.ui.main_window - INFO - Main window initialized
+2025-03-09 19:32:30 - sat_app.ui.main_window - INFO - Application closed

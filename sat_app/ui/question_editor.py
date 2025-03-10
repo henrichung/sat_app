@@ -369,38 +369,25 @@ class QuestionEditor(QWidget):
             
             # Validate answer options with animated feedback
             has_validation_error = False
-            
-            if not self.answer_a.toPlainText().strip():
+
+            # Only validate question text, not answer text
+            if not self.question_text.toPlainText().strip():
                 self.validation_animator.highlight_invalid_field(
-                    self.answer_a, 
-                    "Answer A is required", 
+                    self.question_text, 
+                    "Question text is required", 
                     self
                 )
-                has_validation_error = True
-                
-            if not self.answer_b.toPlainText().strip():
-                self.validation_animator.highlight_invalid_field(
-                    self.answer_b, 
-                    "Answer B is required", 
-                    self
-                )
-                has_validation_error = True
-                
-            if not self.answer_c.toPlainText().strip():
-                self.validation_animator.highlight_invalid_field(
-                    self.answer_c, 
-                    "Answer C is required", 
-                    self
-                )
-                has_validation_error = True
-                
-            if not self.answer_d.toPlainText().strip():
-                self.validation_animator.highlight_invalid_field(
-                    self.answer_d, 
-                    "Answer D is required", 
-                    self
-                )
-                has_validation_error = True
+                return
+
+            # Check that at least one answer option has either text or an image
+            if (not any([
+                self.answer_a.toPlainText().strip() or self.answer_image_paths['A'],
+                self.answer_b.toPlainText().strip() or self.answer_image_paths['B'],
+                self.answer_c.toPlainText().strip() or self.answer_image_paths['C'],
+                self.answer_d.toPlainText().strip() or self.answer_image_paths['D'],
+            ])):
+                QMessageBox.warning(self, "Validation Error", "At least one answer option must have text or an image")
+                return
             
             if has_validation_error:
                 return
