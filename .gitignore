@@ -1,0 +1,13 @@
+data/
+build
+development.md
+CLAUDE.md
+dist/
+.gitignore
+config
+.claude
+.mypy_cache
+conda-recipe/
+tools/
+*.json
+logs/

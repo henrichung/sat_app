@@ -1,0 +1,55 @@
+{% set name = "sat_app" %}
+{% set version = "0.1.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  path: ..
+
+build:
+  number: 0
+  string: py{{ python | replace(".", "") }}
+  entry_points:
+    - sat_app = sat_app.main:main
+  script: {{ PYTHON }} -m pip install . -vv
+  skip: True  # [py<39]
+
+requirements:
+  host:
+    - python
+    - pip
+    - setuptools
+  run:
+    - python >=3.9,<3.14
+    - matplotlib >=3.10.0
+    - numpy >=2.2.0
+    - pyqt6 >=6.8.0
+    - pillow >=11.0.0
+    - reportlab >=4.3.0
+    - pycairo >=1.27.0
+    - sympy >=1.13.0
+    - pypdf2 >=3.0.0
+
+test:
+  imports:
+    - sat_app
+  commands:
+    - pip check
+  requires:
+    - pip
+
+about:
+  home: https://github.com/henrichung/sat_app
+  summary: 'SAT Question Bank & Worksheet Generator'
+  description: |
+    Desktop application that lets educators manage a SQL-backed SAT question bank, 
+    generate dynamic worksheets with randomized questions, and capture detailed scoring 
+    analytics for students.
+  license: MIT
+  license_family: MIT
+
+extra:
+  recipe-maintainers:
+    - henrichung

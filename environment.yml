@@ -1,0 +1,18 @@
+name: sat_app
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.9
+  - pyqt6
+  - matplotlib>=3.10.0
+  - numpy>=2.2.0
+  - pillow>=11.0.0
+  - reportlab>=4.3.0
+  - pycairo>=1.27.0
+  - sympy>=1.13.0
+  - pypdf2>=3.0.0
+  - pip>=25.0.0
+  - pip:
+    - pyinstaller>=6.12.0
+    - pyinstaller-hooks-contrib>=2025.1

@@ -1,0 +1,16 @@
+{
+    "database": {
+        "path": "data/sat_app.db"
+    },
+    "images": {
+        "question_images_dir": "data/images/questions",
+        "answer_images_dir": "data/images/answers"
+    },
+    "output": {
+        "worksheets_dir": "data/worksheets"
+    },
+    "ui": {
+        "theme": "dark",
+        "font_size": 14
+    }
+}
